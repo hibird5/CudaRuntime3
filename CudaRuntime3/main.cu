@@ -1,7 +1,7 @@
 #ifndef __CUDACC__ 
 #define __CUDACC__
 #endif
-
+//aaa
 #include <cuda.h>
 #include <curand.h>
 #include "cuda_runtime.h"

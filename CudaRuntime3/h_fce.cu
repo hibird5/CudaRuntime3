@@ -46,6 +46,15 @@ __global__ void cost_func(const int num_of_dims, const float* agent_pos, const i
 		agent_val[blockIdx.x] /= 2;
 		break;
 
+	case 3:
+#pragma unroll 
+		for (int i = 0; i < num_of_dims; ++i)
+		{
+			agent_val[blockIdx.x] += 220 / (i + blockIdx.x + 1);
+		}
+		agent_val[blockIdx.x] /= 2;
+		break;
+
 	default:
 #pragma unroll 
 		for (int i = 0; i < num_of_dims; ++i)
@@ -56,18 +65,17 @@ __global__ void cost_func(const int num_of_dims, const float* agent_pos, const i
 	};
 }
 
-__global__ void best_sol(const int num_of_agent, const float* agent_val, size_t* indice, float* best_val)
+__global__ void best_sol(const int num_of_agents, const float* agent_val, size_t* indice, float* best_val)
 {
-	int j = blockIdx.x * num_of_agent / blockDim.x;
+	int j = blockIdx.x * num_of_agents / blockDim.x;
 	best_val[blockIdx.x] = agent_val[j];
 	indice[blockIdx.x] = j;
 
 #pragma unroll
-	for (size_t i = j; i < j + num_of_agent / blockDim.x; ++i)
+	for (size_t i = j; i < j + num_of_agents / blockDim.x; ++i)
 	{
 		indice[blockIdx.x] = (agent_val[i] < best_val[blockIdx.x]) ? i : indice[blockIdx.x];
 		best_val[blockIdx.x] = (i == indice[blockIdx.x]) ? agent_val[i] : best_val[blockIdx.x];
-		__syncthreads();
 	}
 
 }
@@ -86,16 +94,6 @@ __global__ void best_sol(const int num_of_agent, const float* agent_val, size_t*
 //	i_r1 = curand(&r1) % blockDim.x;
 //	i_r2 = curand(&r1) % blockDim.x;
 //	i_r3 = curand(&r1) % blockDim.x;
-//
-//
-//
-//
-//}
 
-
-
-
-//__global__ void init_pop_vals(population* pop)
-//{
-//	cost_func(pop->agent_pos, pop->agent_val[blockIdx.x], pop->sizes.dimensions, pop->input_func);
+//
 //}

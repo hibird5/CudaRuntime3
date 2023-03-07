@@ -39,13 +39,13 @@ __global__ void DE(const float w, const float p, const int* a, const int* b, con
 	curand_init(seed, blockIdx.x, 0, &r1);
 	//curand_init(seed, blockIdx.x, 1, &r2);
 	//curand_init(seed, blockIdx.x, 2, &r3);
-	i_r1 = (curand(&r1) % blockDim.x) * blockDim.x;
-	i_r2 = (curand(&r1) % blockDim.x) * blockDim.x;
-	i_r3 = (curand(&r1) % blockDim.x) * blockDim.x;
-	i_r4 = (curand(&r1) % blockDim.x) * blockDim.x;
+	i_r1 = (curand(&r1) % num_of_agents)* blockDim.x+ threadIdx.x;
+	i_r2 = (curand(&r1) % num_of_agents)* blockDim.x+ threadIdx.x;
+	i_r3 = (curand(&r1) % num_of_agents)* blockDim.x+ threadIdx.x;
+	i_r4 = (curand(&r1) % num_of_agents)* blockDim.x+ threadIdx.x;
 
 	u_tmp = (index < num_of_indices) ?
-		agent_pos[best_sol[0]+ threadIdx.x] + w * (agent_pos[i_r1] + agent_pos[i_r2] - agent_pos[i_r3] - agent_pos[i_r4])
+		agent_pos[best_sol[0]* blockDim.x+ threadIdx.x] + w * (agent_pos[i_r1] + agent_pos[i_r2] - agent_pos[i_r3] - agent_pos[i_r4])
 		//agent_pos[i_r1] + w * (agent_pos[i_r2] - agent_pos[i_r3])
 		:
 		u_tmp;
@@ -67,7 +67,7 @@ __global__ void DE(const float w, const float p, const int* a, const int* b, con
 __global__ void compare_two_pop(float* f_pos, float* f_val, const float* s_pos, const float* s_val)
 {
 	//f_val[blockIdx.x] = (s_val[blockIdx.x] < f_val[blockIdx.x]) ? s_val[blockIdx.x] : f_val[blockIdx.x];
-	int ind;
+	unsigned int ind;
 
 	if (s_val[blockIdx.x] < f_val[blockIdx.x])
 	{

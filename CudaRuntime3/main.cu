@@ -99,26 +99,14 @@ int main()
 	ind = (size_t*)malloc(num_of_agents * sizeof(size_t));
 
 	// prog
-	get_constr << <num_of_dims, 1 >> > (-10000, 10000, a, b);
+	get_constr << <num_of_dims, 1 >> > (-100, 100, a, b);
 	init_pop_pos << <num_of_agents, num_of_dims >> > (agent_pos, a, b, time(NULL));
 	cost_func << <num_of_agents, 1 >> > (agent_pos, agent_val);
 
 	cudaMemcpy(pop_vals, agent_val, num_of_agents * sizeof(float), ::cudaMemcpyDeviceToHost);
 
-	/*for (int j = 0; j < num_of_agents; ++j)
-	{
-		cout << pop_vals[j] << ", ";
-	}
-	cout << '\n' << endl;*/
-
-	searchForBestKernel << <16, 16 >> > (agent_val, indice);
+	searchForBestKernel << <best_bl_th, best_bl_th >> > (agent_val, indice);
 	cudaMemcpy(ind, indice, num_of_agents * sizeof(size_t), ::cudaMemcpyDeviceToHost);
-
-	/*for (int j = 0; j < num_of_agents; ++j)
-	{
-		cout << ind[j] << ", ";
-	}
-	cout << '\n' << endl;*/
 
 
 	cudaError_t err; cudaError_t err1; cudaError_t err2;
@@ -126,49 +114,19 @@ int main()
 
 	//DE start
 	
+	
 	//for (int i = 0; i < max_iter; ++i)
 	//{
-	//	DE << <num_of_agents, num_of_dims >> > (0.5, 0.7, a, b, time(NULL), indice, agent_pos, agent_val, y_DE);
-	//	//err = cudaMemcpy(pop_vals, agent_val, num_of_agents* sizeof(float), ::cudaMemcpyDeviceToHost);
-	//	//for (int j = 0; j < num_of_agents; ++j)
-	//	//{
-	//	//	cout << pop_vals[j] << ',';
-	//	//}
-	//	//cout << endl;
+	//	DE << <num_of_agents, num_of_dims >> > (0.4, 0.7, a, b, time(NULL), indice, agent_pos, agent_val, y_DE);
 	//	cost_func << <num_of_agents, 1 >> > (y_DE, y_DE_val);
-	//	//err1 = cudaMemcpy(pop_back, y_DE, num_of_indices * sizeof(float), ::cudaMemcpyDeviceToHost);
-	//	//for (int i = 0; i < num_of_agents; ++i)
-	//	//{
-	//	//	for (int j = 0; j < num_of_dims; ++j)
-	//	//	{
-	//	//		cout << pop_back[i * num_of_dims + j] << ", ";
-	//	//	}
-	//	//	cout << '\n' << endl;
-	//	//}
-	//	cout << '\n' << endl;
 	//	compare_two_pop << <num_of_agents, 1 >> > (agent_pos, agent_val, y_DE, y_DE_val);
-	//
-	//	searchForBestKernel << <16, 16 >> > (agent_val, indice);
-
-	//	/*err2 = cudaMemcpy(&best_DE[i], &best_sol_a[0], sizeof(float), ::cudaMemcpyDeviceToDevice);
-	//	cudaMemcpy(&best[0], &best_sol_a[0], sizeof(float), ::cudaMemcpyDeviceToHost);
-	//	cout << best[0] << endl;*/
-
+	//	searchForBestKernel << <best_bl_th, best_bl_th>> > (agent_val, indice);
 
 	//	cudaMemcpy(ind, indice, num_of_agents * sizeof(size_t), ::cudaMemcpyDeviceToHost);
-
-
-	//	cout << ind[0] << ", ";
-
-	//	cout << '\n' << endl;
-
 	//	err = cudaMemcpy(&best[i], &agent_val[ind[0]], sizeof(float), ::cudaMemcpyDeviceToHost);
-	//	/*	cout << best[0] << endl;
-	//		cout << endl;*/
-
-
 	//	err1 = cudaMemcpy(best_de, &indice[0], sizeof(size_t), ::cudaMemcpyDeviceToDevice);
 	//}
+
 	//DE end
 
 
@@ -179,37 +137,13 @@ int main()
 	for (int i = 0; i < max_iter; ++i)
 	{
 		pso_f << <num_of_agents, num_of_dims >> > (0.1, 0.25, 2, a, b, time(NULL), indice, agent_pos, agent_best_pso, agent_val);
-		//err = cudaMemcpy(pop_vals, agent_val, num_of_agents* sizeof(float), ::cudaMemcpyDeviceToHost);
-		//for (int j = 0; j < num_of_agents; ++j)
-		//{
-		//	cout << pop_vals[j] << ',';
-		//}
-		//cout << endl;
 		cost_func << <num_of_agents, 1 >> > (agent_pos, agent_val);
-		//err1 = cudaMemcpy(pop_back, y_DE, num_of_indices * sizeof(float), ::cudaMemcpyDeviceToHost);
-		//for (int i = 0; i < num_of_agents; ++i)
-		//{
-		//	for (int j = 0; j < num_of_dims; ++j)
-		//	{
-		//		cout << pop_back[i * num_of_dims + j] << ", ";
-		//	}
-		//	cout << '\n' << endl;
-		//}
-		//cout << '\n' << endl;
 		compare_two_pop << <num_of_agents, 1 >> > (agent_best_pso, agent_best_pso_v, agent_pos, agent_val);
+		searchForBestKernel << <best_bl_th, best_bl_th>> > (agent_best_pso_v, indice);
 
-		searchForBestKernel << <16, 16 >> > (agent_best_pso_v, indice);
-
-		/*err2 = cudaMemcpy(&best_DE[i], &best_sol_a[0], sizeof(float), ::cudaMemcpyDeviceToDevice);
-		cudaMemcpy(&best[0], &best_sol_a[0], sizeof(float), ::cudaMemcpyDeviceToHost);
-		cout << best[0] << endl;*/
 		cudaMemcpy(ind, indice, num_of_agents * sizeof(size_t), ::cudaMemcpyDeviceToHost);
-		cout << ind[0] << ", ";
-		//cout << '\n' << endl;
 		err = cudaMemcpy(&best[i], &agent_best_pso_v[ind[0]], sizeof(float), ::cudaMemcpyDeviceToHost);
-		/*	cout << best[0] << endl;
-			cout << endl;*/
-	//	err1 = cudaMemcpy(best_de, &indice[0], sizeof(size_t), ::cudaMemcpyDeviceToDevice);
+
 	}
 
 	//PSO end
@@ -218,16 +152,20 @@ int main()
 	//err = cudaMemcpy(best, best_DE, max_iter * sizeof(float), ::cudaMemcpyDeviceToHost);
 
 	err = cudaMemcpy(pop_back, agent_pos, num_of_indices * sizeof(float), ::cudaMemcpyDeviceToHost);
-	//for (int i = 0; i < num_of_agents; ++i)
-	//{
-	//	for (int j = 0; j < num_of_dims; ++j)
-	//	{
-	//		cout << pop_back[i * num_of_dims + j] << ", ";
-	//	}
-	//	cout << '\n' << endl;
-	//}
-	//cout << '\n' << endl;
+	for (int i = 0; i < num_of_agents; ++i)
+	{
+		cout << i << " ";
+		for (int j = 0; j < num_of_dims; ++j)
+		{
+			cout << pop_back[i * num_of_dims + j] << ", ";
+		}
+		cout << '\n' << endl;
+	}
+	cout << '\n' << endl;
 
+	cout << ind[0] << ", " << endl;
+	err1 = cudaMemcpy(&ind[0], best_de, sizeof(size_t), ::cudaMemcpyDeviceToHost);
+	cout << ind[0] << ", " << endl;
 
 
 	for (int i = 0; i < max_iter; ++i)
@@ -236,10 +174,7 @@ int main()
 	}
 	cout << '\n' << endl;
 
-	for (int i = num_of_dims* ind[0]; i < num_of_dims * ind[0]+num_of_dims; ++i)
-	{
-		cout << pop_back[i] << ", " << endl;
-	}
+
 	free(pop_back);
 	free(pop_vals);
 	free(best);

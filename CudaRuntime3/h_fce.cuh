@@ -15,15 +15,19 @@
 #include <curand.h>
 #include <curand_kernel.h>
 #include "kernel.cu"
+#include <thrust/reduce.h>
 
 #define num_of_agents 512
-#define num_of_dims 5
+#define num_of_dims 2
 #define num_of_indices num_of_agents*num_of_dims
-#define input_func 10
+#define input_func 12
 #define num_of_best_indices 1
 #define max_iter 1000
 #define num_of_agents_half num_of_agents/2
+#define best_bl_th sqrt(num_of_agents_half)
 #define num_of_runs 10
+
+//using namespace thrust;
 
 //class pop
 //{
@@ -45,6 +49,12 @@ __global__ void DE(const float w, const float p, const int* a, const int* b, con
 
 __global__ void pso_f(const float w, const float c1, const float c2, const int* a, const int* b, const unsigned long seed,
 	const size_t* best_sol, float* agent_pos, const float* agent_best_pos, const float* agent_val);
+
+//__global__ void ffa(const float alfa, const float beta, const float gamma, const int* a, const int* b, const unsigned long seed,
+//	const size_t* best_sol, float* agent_pos, const float* agent_best_pos, const float* agent_val)
+//{
+//	// thrust::reduce for sum vector indices
+//}
 
 __global__ void compare_two_pop(float* f_pos, float* f_val, const float* s_pos, const float* s_val);
 

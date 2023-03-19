@@ -18,16 +18,16 @@
 #include <thrust/execution_policy.h>
 #include <thrust/reduce.h>
 
-#define num_of_agents 128
-#define pow_of_agents pow(128,2)
+#define num_of_agents 512
+#define pow_of_agents pow(512,2)
 #define num_of_dims 2
 #define num_of_indices num_of_agents*num_of_dims
 #define input_func 1
 #define num_of_best_indices 1
-#define max_iter 10
+#define max_iter 1000
 #define num_of_agents_half num_of_agents/2
 #define best_bl_th sqrt(num_of_agents_half)
-#define num_of_runs 7
+#define num_of_runs 9
 
 //using namespace thrust;
 

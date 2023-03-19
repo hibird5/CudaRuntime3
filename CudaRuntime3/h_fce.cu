@@ -140,7 +140,7 @@ __global__ void ffa(const float alfa, const float beta, const float gamma, const
 	unsigned int offset_x = agent_x * num_of_dims;
 	unsigned int offset_y = agent_y * num_of_dims;
 
-	unsigned int offset_Y = agent_y * (num_of_agents-1) * num_of_dims;
+	unsigned int offset_Y = agent_y * (num_of_agents) * num_of_dims;
 
 	unsigned int x_indice;
 
@@ -151,12 +151,12 @@ __global__ void ffa(const float alfa, const float beta, const float gamma, const
 	curand_init(seed, index, 0, &r);
 
 	if (agent_val[agent_y] < agent_val[agent_x]) {
-#pragma unroll
 		R = 0;
+#pragma unroll
 		for (auto i = 0; i < num_of_dims; i++) {
 			R += pow(agent_pos[offset_x + i] - agent_pos[offset_y + i], 2);	//calc distance
 		}
-		__syncthreads();
+
 #pragma unroll
 		for (auto i = 0; i < num_of_dims; i++) {
 
@@ -168,6 +168,7 @@ __global__ void ffa(const float alfa, const float beta, const float gamma, const
 			agent_new_pos[index] = (a[threadIdx.x] <= tmp) ? tmp : a[threadIdx.x];
 			agent_new_pos[index] = (b[threadIdx.x] >= tmp) ? tmp : b[threadIdx.x];
 		}
+
 	}
 	else {
 		for (auto i = 0; i < num_of_dims; i++) {
@@ -175,8 +176,9 @@ __global__ void ffa(const float alfa, const float beta, const float gamma, const
 			index = x_indice + offset_Y;	
 			agent_new_pos[index] = agent_pos[x_indice];		//save old 
 		}
+
 	}
-		__syncthreads();
+	__syncthreads();
 }
 
 __global__ void compare_two_pop(float* old_pos, float* old_val, const float* new_pos, const float* new_val)

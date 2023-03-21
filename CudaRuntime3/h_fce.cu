@@ -25,62 +25,70 @@ __global__ void init_pop_pos(float* agent_pos, const int* a, const int* b,unsign
 
 __global__ void cost_func(const float* agent_pos, float* agent_val)
 {
-	int agent = blockIdx.x * num_of_dims;
-	agent_val[blockIdx.x] = 0;
+	unsigned int agent = threadIdx.x * num_of_dims + threadIdx.y * num_of_indices;
+	unsigned int offset= threadIdx.x + threadIdx.y * num_of_agents;
+	agent_val[threadIdx.x] = 0;
 	switch (input_func)
 	{
 	case 1:
 #pragma unroll 
 		for (int i = 0; i < num_of_dims; ++i)
 		{
-			agent_val[blockIdx.x] += pow(agent_pos[agent + i], 4) - 16 * pow(agent_pos[agent + i], 2)
+			agent_val[offset] += powf(agent_pos[agent + i], 4) - 16 * powf(agent_pos[agent + i], 2)
 				+ 5 * agent_pos[agent + i];
 		}
-		agent_val[blockIdx.x] /= 2;
-		break;
-	case 2:
-#pragma unroll 
-		for (int i = 0; i < num_of_dims; ++i)
-		{
-			agent_val[blockIdx.x] += 220 / (i + blockIdx.x + 1);
-		}
-		agent_val[blockIdx.x] /= 2;
-		break;
-
-	case 3:
-#pragma unroll 
-		for (int i = 0; i < num_of_dims; ++i)
-		{
-			agent_val[blockIdx.x] += 220 / (i + blockIdx.x + 1);
-		}
-		agent_val[blockIdx.x] /= 2;
+		agent_val[offset] /= 2;
 		break;
 
 	default:
 #pragma unroll 
 		for (int i = 0; i < num_of_dims; ++i)
 		{
-			agent_val[blockIdx.x] += pow(agent_pos[agent + i], 2);
+			agent_val[offset] += powf(agent_pos[agent + i], 2);
 		}
 		break;
-	};
+	}
 }
+//__global__ void sphere(const float* agent_pos, float* agent_val)
+//{
+//	int agent = threadIdx.x * num_of_dims;
+//	agent_val[threadIdx.x] = 0;
+//	
+//#pragma unroll 
+//		for (int i = 0; i < num_of_dims; ++i)
+//		{
+//			agent_val[threadIdx.x] += pow(agent_pos[agent + i], 2);
+//		}
+//
+//}
+//__global__ void styblinski–tang(const float* agent_pos, float* agent_val)
+//{
+//	int agent = threadIdx.x * num_of_dims;
+//	agent_val[threadIdx.x] = 0;
+//
+//#pragma unroll 
+//	for (int i = 0; i < num_of_dims; ++i)
+//	{
+//		agent_val[threadIdx.x] += pow(agent_pos[agent + i], 4) - 16 * pow(agent_pos[agent + i], 2)
+//			+ 5 * agent_pos[agent + i];
+//	}
+//	agent_val[threadIdx.x] /= 2;
+//}
 
-
-__global__ void DE(const float w, const float p, const int* a, const int* b, const unsigned long seed, const size_t* best_sol,
-	const float* agent_pos, const float* agent_val, float* y)
+__global__ void DE(const float w, const float p, const int* a, const int* b, 
+	const unsigned int* Ri, const unsigned int* X, const float* Rj,
+	const size_t* best_sol, const float* agent_pos, const float* agent_val, float* y)
 {
 	float u_tmp = 0;
 	float u;
 	unsigned int index = threadIdx.x + blockIdx.x * blockDim.x;
-	unsigned int i_r1, i_r2, i_r3, i_r4, X;
-	float Rj;
-	curandState r1;
-	curand_init(seed, blockIdx.x, 0, &r1);
-	i_r1 = (curand(&r1) % num_of_agents) * blockDim.x + threadIdx.x;
-	i_r2 = (curand(&r1) % num_of_agents) * blockDim.x + threadIdx.x;
-	i_r3 = (curand(&r1) % num_of_agents) * blockDim.x + threadIdx.x;
-	i_r4 = (curand(&r1) % num_of_agents) * blockDim.x + threadIdx.x;
+	unsigned int r_index = 4 * (threadIdx.x + blockIdx.x * blockDim.x);
+	unsigned int i_r1, i_r2, i_r3, i_r4;
+
+	i_r1 = (Ri[r_index + 0] % num_of_agents) * blockDim.x + threadIdx.x;
+	i_r2 = (Ri[r_index + 1] % num_of_agents) * blockDim.x + threadIdx.x;
+	i_r3 = (Ri[r_index + 2] % num_of_agents) * blockDim.x + threadIdx.x;
+	i_r4 = (Ri[r_index + 3] % num_of_agents) * blockDim.x + threadIdx.x;
 
 	u_tmp = (index < num_of_indices) ?
 		agent_pos[best_sol[0] * blockDim.x + threadIdx.x] + w * (agent_pos[i_r1] + agent_pos[i_r2] - agent_pos[i_r3] - agent_pos[i_r4])
@@ -92,33 +100,23 @@ __global__ void DE(const float w, const float p, const int* a, const int* b, con
 	u = (a[threadIdx.x] <= u_tmp) ? u_tmp : a[threadIdx.x];
 	u = (b[threadIdx.x] >= u_tmp) ? u_tmp : b[threadIdx.x];
 
-
-	__syncthreads();
-	X = curand(&r1) % num_of_dims;
-	curand_init(seed, 0, index, &r1);
-	Rj = curand_uniform(&r1);
-
-	y[index] = (Rj <= p || X == threadIdx.x) ? u : agent_pos[index] ;
-	__syncthreads();
+	//new pos
+	y[index] = (Rj[index] <= p || X[index] == threadIdx.x) ? u : agent_pos[index] ;
+	//__syncthreads();
 }
 
-__global__ void pso_f(const float w, const float c1, const float c2, const int* a, const int* b, const unsigned long seed,
+__global__ void pso_f(const float w, const float c1, const float c2, const int* a, const int* b, const float* r_i,
 	const size_t* best_sol, float* agent_pos, const float* agent_best_pos, const float* agent_val)
 {
 	float V = 0;
 	float tmp = 0;
-	float r1, r2;
 	unsigned int index = threadIdx.x + blockIdx.x * blockDim.x;
 	unsigned int best_index = threadIdx.x + best_sol[0] * blockDim.x;
 	
-	curandState r;
-	curand_init(seed, blockIdx.x, 0, &r);
-	r1 = curand_uniform(&r);
-	r2 = curand_uniform(&r);
-
-	__syncthreads();
+	unsigned int r2 = index + num_of_indices;
 	
-	V = w * V + c1 * r1*(agent_best_pos[index] - agent_pos[index]) + c2 * r2*(agent_best_pos[best_index] - agent_pos[index]);
+	V = w * V + c1 * r_i[index]*(agent_best_pos[index] - agent_pos[index]) + c2 * r_i[r2] 
+		* (agent_best_pos[best_index] - agent_pos[index]);
 
 	tmp = V + agent_pos[index];
 
@@ -128,75 +126,56 @@ __global__ void pso_f(const float w, const float c1, const float c2, const int* 
 	__syncthreads();
 }
 
-//
-__global__ void ffa(const float alfa, const float beta, const float gamma, const int* a, const int* b, const unsigned long seed,
+
+__global__ void ffa(const float alfa, const float beta, const float gamma, const int* a, const int* b, const float* r,
 	 const float* agent_pos, float* agent_new_pos, const float* agent_val)
 {
-	unsigned int index = threadIdx.x + blockIdx.x * blockDim.x;
-
 	unsigned int agent_x = blockIdx.x;
-	unsigned int agent_y = threadIdx.x;
+	unsigned int agent_y = blockIdx.y;
 
-	unsigned int offset_x = agent_x * num_of_dims;
-	unsigned int offset_y = agent_y * num_of_dims;
+	unsigned int offset_x = blockIdx.x * blockDim.x;
+	unsigned int offset_y = blockIdx.y * blockDim.x;
 
-	unsigned int offset_Y = agent_y * (num_of_agents) * num_of_dims;
+	unsigned int index_x = blockIdx.x * blockDim.x + threadIdx.x;
+	unsigned int index_y = blockIdx.y * blockDim.x + threadIdx.x;
+	unsigned int index_r = agent_x + agent_y * num_of_agents;
+	unsigned int index	= index_x + blockDim.x * num_of_agents * agent_y;	// index of pos to save
 
-	unsigned int x_indice;
-
-	float R = 0;
-	float  tmp;
-
-	curandState r;
-	curand_init(seed, index, 0, &r);
+	float R;
+	float tmp;
 
 	if (agent_val[agent_y] < agent_val[agent_x]) {
 		R = 0;
 #pragma unroll
 		for (auto i = 0; i < num_of_dims; i++) {
-			R += pow(agent_pos[offset_x + i] - agent_pos[offset_y + i], 2);	//calc distance
+			R += powf(agent_pos[offset_x + i] - agent_pos[offset_y + i], 2);	//calc distance
 		}
 
-#pragma unroll
-		for (auto i = 0; i < num_of_dims; i++) {
+		tmp = agent_pos[index_x] + beta * exp(-gamma * R) * (agent_pos[index_x] - agent_pos[index_y])
+			+ alfa * r[index_r];		//new pos
 
-			x_indice = offset_x + i;
-			tmp = agent_pos[x_indice] + beta * exp(-gamma * R) * (agent_pos[x_indice] - agent_pos[offset_y + i])
-				+ alfa * curand_normal(&r);		//new pos
-
-			index = x_indice + offset_Y;	//possible pos, 1 column for agent
-			agent_new_pos[index] = (a[threadIdx.x] <= tmp) ? tmp : a[threadIdx.x];
-			agent_new_pos[index] = (b[threadIdx.x] >= tmp) ? tmp : b[threadIdx.x];
-		}
-
+		agent_new_pos[index] = (a[threadIdx.x] <= tmp) ? tmp : a[threadIdx.x];
+		agent_new_pos[index] = (b[threadIdx.x] >= tmp) ? tmp : b[threadIdx.x];
 	}
 	else {
-		for (auto i = 0; i < num_of_dims; i++) {
-			x_indice = offset_x + i;
-			index = x_indice + offset_Y;	
-			agent_new_pos[index] = agent_pos[x_indice];		//save old 
-		}
-
+			agent_new_pos[index] = agent_pos[index_x];		//save old 
 	}
 	__syncthreads();
 }
 
 __global__ void compare_two_pop(float* old_pos, float* old_val, const float* new_pos, const float* new_val)
 {
-	unsigned int ind;
+	unsigned int ind = threadIdx.x + blockIdx.x * blockDim.x;
 
-	if (new_val[blockIdx.x] < old_val[blockIdx.x])
-	{
-		old_val[blockIdx.x] = new_val[blockIdx.x];
-		__syncthreads();
-			ind = blockIdx.x * num_of_dims;
-#pragma unroll
-		for (int i = ind; i < ind + num_of_dims; ++i)
-		{
-			old_pos[i] = new_pos[i];
-		}
-	}
-	__syncthreads();
+	old_val[blockIdx.x] = (new_val[blockIdx.x] < old_val[blockIdx.x]) ? new_val[blockIdx.x] : old_val[blockIdx.x];
+	old_pos[ind] = (new_val[blockIdx.x] < old_val[blockIdx.x]) ? new_pos[ind] : old_pos[ind];
+	//if (new_val[blockIdx.x] < old_val[blockIdx.x])
+	//{
+	//	old_val[blockIdx.x] = new_val[blockIdx.x];
+	//	
+	//	old_pos[ind] = new_pos[ind];
+	//}
+
 }
 
 __global__ void compare_ff_pos(float* old_pos, float* old_val, const float* new_pos, const float* new_val)
@@ -264,3 +243,55 @@ __global__ void compare_ff_pos(float* old_pos, float* old_val, const float* new_
 	//	agent_new_pos[index] = (b[threadIdx.x] >= tmp) ? tmp : b[threadIdx.x];
 	//
 	//}
+
+//__global__ void ffa(const float alfa, const float beta, const float gamma, const int* a, const int* b, const unsigned long seed,
+//	const float* agent_pos, float* agent_new_pos, const float* agent_val)
+//{
+//	unsigned int index = threadIdx.x + blockIdx.x * blockDim.x;
+//
+//	unsigned int agent_x = blockIdx.x;
+//	unsigned int agent_y = threadIdx.x;
+//
+//	unsigned int offset_x = agent_x * num_of_dims;
+//	unsigned int offset_y = agent_y * num_of_dims;
+//
+//	unsigned int offset_Y = agent_y * (num_of_agents)*num_of_dims;
+//
+//	unsigned int x_indice;
+//
+//	float R = 0;
+//	float  tmp;
+//
+//	curandState r;
+//	curand_init(seed, index, 0, &r);
+//
+//	if (agent_val[agent_y] < agent_val[agent_x]) {
+//		R = 0;
+//#pragma unroll
+//		for (auto i = 0; i < num_of_dims; i++) {
+//			R += pow(agent_pos[offset_x + i] - agent_pos[offset_y + i], 2);	//calc distance
+//		}
+//
+//#pragma unroll
+//		for (auto i = 0; i < num_of_dims; i++) {
+//
+//			x_indice = offset_x + i;
+//			tmp = agent_pos[x_indice] + beta * exp(-gamma * R) * (agent_pos[x_indice] - agent_pos[offset_y + i])
+//				+ alfa * curand_normal(&r);		//new pos
+//
+//			index = x_indice + offset_Y;	//possible pos, 1 column for agent
+//			agent_new_pos[index] = (a[threadIdx.x] <= tmp) ? tmp : a[threadIdx.x];
+//			agent_new_pos[index] = (b[threadIdx.x] >= tmp) ? tmp : b[threadIdx.x];
+//		}
+//
+//	}
+//	else {
+//		for (auto i = 0; i < num_of_dims; i++) {
+//			x_indice = offset_x + i;
+//			index = x_indice + offset_Y;
+//			agent_new_pos[index] = agent_pos[x_indice];		//save old 
+//		}
+//
+//	}
+//	__syncthreads();
+//}

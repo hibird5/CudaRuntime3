@@ -21,8 +21,13 @@
 #include <thrust/device_vector.h>
 
 #define num_of_agents 512
+#define num_of_runs 9
 #define pow_of_agents num_of_agents*num_of_agents
 #define num_of_dims 10
+#define num_of_runs_add 5
+#define dims_to_log 16
+#define dims_to_log_half 8
+
 #define num_of_indices num_of_agents*num_of_dims
 #define input_func 1
 #define lo -5
@@ -31,7 +36,6 @@
 #define max_iter 1000
 #define num_of_agents_half num_of_agents/2
 #define pow_of_agents_half pow_of_agents/2
-#define num_of_runs 9
 
 //using namespace thrust;
 

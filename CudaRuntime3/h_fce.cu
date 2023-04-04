@@ -32,12 +32,24 @@ __global__ void cost_func(const float* agent_pos, float* agent_val)
 	agent_val[offset] = 0;
 	switch (input_func)
 	{
+//	case 0 :
+//#pragma unroll
+//		for (auto i = 0; i < num_of_runs_add; i++) {
+//			tmp[threadIdx.x] = ((offset_x + threadIdx.x + step || offset_y + threadIdx.x + step) < num_of_dims) ?
+//				powf(agent_new_pos[offset_x + threadIdx.x] - agent_pos[offset_y + threadIdx.x], 2)
+//				+ powf(agent_new_pos[offset_x + threadIdx.x + step] - agent_pos[offset_y + threadIdx.x + step], 2)
+//				:
+//				powf(agent_new_pos[offset_x + threadIdx.x] - agent_pos[offset_y + threadIdx.x], 2);	//calc distance
+//			step >>= 1;
+//			__syncthreads();
+//		}
 	case 1:
 #pragma unroll 
 		for (int i = 0; i < num_of_dims; ++i)
-		{
-			agent_val[offset] += powf(agent_pos[agent + i], 4) - 16 * powf(agent_pos[agent + i], 2)
-				+ 5 * agent_pos[agent + i];
+		{	
+			int j = agent + i;
+			agent_val[offset] += powf(agent_pos[j], 4) - 16 * powf(agent_pos[j], 2)
+				+ 5 * agent_pos[j];
 		}
 		agent_val[offset] /= 2;
 		break;
@@ -211,7 +223,7 @@ __global__ void iGWO_nh(unsigned int* r_w, const float* r, const int* a, const i
 	r_w[nh] = r_w[nh] % num_of_agents;
 
 	ind_to_choose[dist_y] = (distance[dist_y] <= distance[ind_to_comp]) ? blockIdx.y : blockIdx.x;
-
+	__syncthreads();
 
 //#pragma unroll
 //	for (auto i = 0; i < num_of_dims; i++)
@@ -226,6 +238,18 @@ __global__ void iGWO_nh(unsigned int* r_w, const float* r, const int* a, const i
 
 	nh_pos[index] = (a[0] <= nh_pos[index]) ? nh_pos[index] : a[0];
 	nh_pos[index] = (b[0] >= nh_pos[index]) ? nh_pos[index] : b[0];
+}
+
+__global__ void abc_rns(const float* agent_pos, float* agent_new_pos, const int* a, const int* b, const float*r, const int* rI) {
+	
+	float tmp;
+	unsigned int index = threadIdx.x + blockIdx.x * num_of_dims;
+	unsigned int r_index = threadIdx.x + rI[blockIdx.x] % num_of_agents * num_of_dims;
+
+	tmp = agent_pos[index] + (2 * r[index] - 1) * (agent_pos[index] - agent_pos[r_index]);
+
+	agent_new_pos[index] = (a[threadIdx.x] <= tmp) ? tmp : a[threadIdx.x];
+	agent_new_pos[index] = (b[threadIdx.x] >= tmp) ? tmp : b[threadIdx.x];
 }
 
 __global__ void calc_distances(const float* agent_pos, const float* agent_new_pos, float* distance)
@@ -270,6 +294,15 @@ __global__ void compare_two_pop(float* old_pos, float* old_val, const float* new
 	old_pos[ind] = (new_val[blockIdx.x] < old_val[blockIdx.x]) ? new_pos[ind] : old_pos[ind];
 }
 
+__global__ void compare_abc_pos(float* old_pos, float* old_val, const float* new_pos, const float* new_val, unsigned int* abb_dec)
+{
+	unsigned int ind = threadIdx.x + blockIdx.x * blockDim.x;
+
+	old_val[blockIdx.x] = (new_val[blockIdx.x] < old_val[blockIdx.x]) ? new_val[blockIdx.x] : old_val[blockIdx.x];
+	old_pos[ind] = (new_val[blockIdx.x] < old_val[blockIdx.x]) ? new_pos[ind] : old_pos[ind];
+	abb_dec[blockIdx.x] += (new_val[blockIdx.x] < old_val[blockIdx.x]) ? 0 : 1;
+}
+
 __global__ void compare_ff_pos(float* old_pos, float* old_val, const float* new_pos, const float* new_val)
 {
 	unsigned int ind = threadIdx.x + blockIdx.x * blockDim.x;
@@ -296,7 +329,26 @@ __global__ void compare_ff_pos(float* old_pos, float* old_val, const float* new_
 	}
 }
 
+__global__ void eval_fit(const float* val, float* fit)
+{
+	__shared__ float tmp_fit[num_of_agents];
+	__shared__ float tmp_sum[num_of_agents_half];
+	unsigned int step = num_of_agents_half;
+	unsigned int ind_step = step + threadIdx.x;
+	tmp_fit[threadIdx.x] = (val[threadIdx.x] < 0) ? 1 + fabs(val[threadIdx.x]) : 1 / (1 + fabs(val[threadIdx.x]));
+	tmp_fit[ind_step] = (val[ind_step] < 0) ? 1 + fabs(val[ind_step]) : 1 / (1 + fabs(val[ind_step]));
 
+	for (int i = 0; i < num_of_runs; ++i)
+	{
+	ind_step = step + threadIdx.x;
+	tmp_sum[threadIdx.x] += tmp_fit[threadIdx.x] + tmp_fit[ind_step];
+
+	step >>= 1;
+	__syncthreads();
+	}
+
+	fit[threadIdx.x] = tmp_fit[threadIdx.x] / tmp_sum[0];
+}
 
 
 

@@ -12,15 +12,21 @@
     <CudaCompile Include="h_fce.cu">
       <Filter>Source files</Filter>
     </CudaCompile>
+    <CudaCompile Include="ker.cu">
+      <Filter>Source files</Filter>
+    </CudaCompile>
     <CudaCompile Include="main.cu">
       <Filter>Source files</Filter>
     </CudaCompile>
-    <CudaCompile Include="kernel.cu">
+    <CudaCompile Include="alg.cu">
       <Filter>Source files</Filter>
     </CudaCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="h_fce.cuh">
+      <Filter>Header files</Filter>
+    </ClInclude>
+    <ClInclude Include="alg.cuh">
       <Filter>Header files</Filter>
     </ClInclude>
   </ItemGroup>

@@ -14,46 +14,44 @@
 #include <device_functions.h>
 #include <cuda_runtime_api.h>
 #include <cub/cub.cuh>
-#include "kernel.cu"
+
 #include <thrust/execution_policy.h>
 #include <thrust/reduce.h>
 #include <thrust/sort.h>
 #include <thrust/device_vector.h>
 
-#define num_of_agents 512
-#define num_of_runs 9
+
+#define num_of_agents 64
+#define num_of_runs 6
 #define pow_of_agents num_of_agents*num_of_agents
-#define num_of_dims 4
-#define num_of_runs_add 2
-#define dims_to_log 4
-#define dims_to_log_half 2
+#define num_of_dims 2
+#define num_of_runs_add 1
+#define dims_to_log 2
+#define dims_to_log_half dims_to_log/2
 
 #define num_of_indices num_of_agents*num_of_dims
 #define input_func 2
-#define lo -5
-#define hi 5
+#define lo -500
+#define hi 500
 #define num_of_best_indices 1
-#define max_iter 10
+#define max_iter 500
 #define num_of_agents_half num_of_agents/2
 #define pow_of_agents_half pow_of_agents/2
-
-//using namespace thrust;
-
-//class pop
-//{
-//	float* agent_pos = NULL;
-//	float* agent_val = NULL;
-//};
-
 
 
 __global__ void get_constr(const int min, const int max, int* a, int* b);
 
 __global__ void init_pop_pos(float* agent_pos, const int* a, const int* b, unsigned long seed);
 
+__global__ void cost_func(const float* agent_pos, float* agent_val);
+
 __global__ void cost_func(const float* agent_pos, float* agent_val, float* tmp);
 //__global__ void sphere(const float* agent_pos, float* agent_val);
 //__global__ void styblinski–tang(const float* agent_pos, float* agent_val);
+
+__global__ void searchForBestKernel(volatile float* objectiveValues, unsigned int* indices);
+
+__global__ void searchForBestThree(volatile float* objectiveValues, unsigned int* best_three);
 
 __global__ void DE(const float w, const float p, const int* a, const int* b,
 					 const unsigned int* Ri, const unsigned int* X, const float* Rj,
@@ -92,9 +90,9 @@ __global__ void compare_ff_pos(float* old_pos, float* old_val, const float* new_
 __global__ void probability_selection(const float* val, const float* r, unsigned int* index_to_rns);
 
 __global__ void scout_phase(unsigned int* abbadon_dec, const unsigned int abbadon_val, const int* a, const int* b,
-	const float* r, float* agent_pos);
+	const float* r, float* agent_pos, unsigned int best_index);
 
-
+void error_h(cudaError_t e);
 //__global__ void best_sol(const int num_of_agent, const float* agent_val, unsigned int* indice, float* best_val);
 #endif /* h_fce_H */
 

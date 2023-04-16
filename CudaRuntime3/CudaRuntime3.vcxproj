@@ -87,11 +87,13 @@
     </CudaCompile>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <CudaCompile Include="alg.cu" />
     <CudaCompile Include="h_fce.cu" />
-    <CudaCompile Include="kernel.cu" />
     <CudaCompile Include="main.cu" />
+    <CudaCompile Include="ker.cu" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="alg.cuh" />
     <ClInclude Include="h_fce.cuh" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

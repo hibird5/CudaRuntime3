@@ -21,20 +21,20 @@
 #include <thrust/device_vector.h>
 
 
-#define num_of_agents 64
-#define num_of_runs 6
+#define num_of_agents 16
+#define num_of_runs 4
 #define pow_of_agents num_of_agents*num_of_agents
-#define num_of_dims 2
-#define num_of_runs_add 1
-#define dims_to_log 2
+#define num_of_dims 3
+#define num_of_runs_add 2
+#define dims_to_log 4
 #define dims_to_log_half dims_to_log/2
 
 #define num_of_indices num_of_agents*num_of_dims
-#define input_func 2
-#define lo -500
-#define hi 500
+#define input_func 0
+#define lo -5
+#define hi 5
 #define num_of_best_indices 1
-#define max_iter 500
+#define max_iter 50
 #define num_of_agents_half num_of_agents/2
 #define pow_of_agents_half pow_of_agents/2
 

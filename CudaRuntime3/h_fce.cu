@@ -22,13 +22,13 @@ __global__ void init_pop_pos(float* agent_pos, const int* a, const int* b,unsign
 
 __global__ void cost_func(const float* agent_pos, float* agent_val)
 {
-	unsigned int agent = blockIdx.x * num_of_dims + blockIdx.y * num_of_indices;
-	__shared__ float tmp[num_of_agents*dims_to_log_half];
+	unsigned int agent = blockIdx.x * num_of_dims;
+	__shared__ float tmp[num_of_agents*dims_to_log];
 	unsigned int index = threadIdx.x + agent;
 	unsigned int step = dims_to_log_half;
 	unsigned int step_index = index + step;
 
-	agent_val[blockIdx.x + blockIdx.y * num_of_agents] = 0;
+	agent_val[blockIdx.x] = 0;
 	tmp[index] = 0;
 
 	switch (input_func)
@@ -52,11 +52,12 @@ __global__ void cost_func(const float* agent_pos, float* agent_val)
 #pragma unroll
 	for (auto i = 0; i < num_of_runs_add; i++) {
 		step_index = threadIdx.x + step;
-		tmp[index] += ((step_index) < 2 * step) ? tmp[agent + step_index] : 0;
+		tmp[index] += ((step_index) < 2*step) ? tmp[agent + step_index] : 0;
 		step >>= 1;
 		__syncthreads();
 	}
-	agent_val[blockIdx.x + blockIdx.y * num_of_agents] = tmp[agent];
+	__syncthreads();
+	agent_val[blockIdx.x] = tmp[agent];
 }
 
 __global__ void cost_func(const float* agent_pos, float* agent_val, float* tmp)
@@ -67,7 +68,7 @@ __global__ void cost_func(const float* agent_pos, float* agent_val, float* tmp)
 	unsigned int step = dims_to_log_half;
 	unsigned int step_index = index + step;
 
-	agent_val[blockIdx.x + blockIdx.y * num_of_agents] = 0;
+	//agent_val[blockIdx.x + blockIdx.y * num_of_agents] = 0;
 	tmp[index] = 0;
 
 	switch (input_func)
@@ -84,18 +85,19 @@ __global__ void cost_func(const float* agent_pos, float* agent_val, float* tmp)
 		tmp[index] += (step_index < agent + num_of_dims) ?
 			agent_pos[index] * agent_pos[index] + agent_pos[step_index] * agent_pos[step_index]
 			:
-			agent_pos[index] * agent_pos[index];
+			agent_pos[index] * agent_pos[index] + 1;
 		break;
 	}
 	step >>= 1;
 #pragma unroll
 	for (auto i = 0; i < num_of_runs_add; i++) {
 		step_index = threadIdx.x + step;
-		tmp[index] += ((step_index) < 2 * step) ? tmp[agent + step_index] : 0;
+		tmp[index] += ((step_index) < dims_to_log_half) ? tmp[agent + step_index] : 0; // 2 * step
 		step >>= 1;
 		__syncthreads();
 	}
 	agent_val[blockIdx.x + blockIdx.y * num_of_agents] = tmp[agent];
+	
 }
 //__global__ void sphere(const float* agent_pos, float* agent_val)
 //{

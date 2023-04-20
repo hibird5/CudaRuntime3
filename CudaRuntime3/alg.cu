@@ -1,6 +1,7 @@
+
 #include"alg.cuh"
 
-__host__  void Diff_ev(const float w, const float p, const float* init_pop,const float* init_vals,const int* a,const  int* b,
+ void Diff_ev(const float w, const float p, const float* init_pop,const float* init_vals,const int* a,const  int* b,
 	float* best_pos, float* best_vals, float time_per_iter) {
 
 	float* agent_pos = NULL;
@@ -11,13 +12,19 @@ __host__  void Diff_ev(const float w, const float p, const float* init_pop,const
 	unsigned int* best_index = NULL;
 	unsigned int* r;
 	unsigned int* X;
-	unsigned int* best_ind = (unsigned int*)malloc(num_of_agents_half * sizeof(unsigned int)); ;
+	//unsigned int* best_ind = (unsigned int*)malloc(num_of_agents_half * sizeof(unsigned int)); ;
 	float* Rj;
 
 
 	cudaError_t err = (cudaError_t)0;
 	curandGenerator_t r_int;
 	unsigned int num_of_Ri = 4 * num_of_indices;
+	
+	err = cudaGetLastError();
+	error_h(err);
+
+	curandCreateGenerator(&r_int, CURAND_RNG_PSEUDO_PHILOX4_32_10);
+	curandStatus_t aaa =  curandSetPseudoRandomGeneratorSeed(r_int, 5);
 
 	cudaMalloc(&agent_pos, num_of_indices * sizeof(float));
 	cudaMalloc(&agent_val, num_of_agents * sizeof(float));
@@ -28,10 +35,7 @@ __host__  void Diff_ev(const float w, const float p, const float* init_pop,const
 	cudaMalloc(&Rj, num_of_indices * sizeof(float));
 	cudaMalloc(&best_index, num_of_agents_half* sizeof(unsigned int));
 
-	curandCreateGenerator(&r_int, CURAND_RNG_PSEUDO_PHILOX4_32_10);
 	err = cudaGetLastError();
-	curandStatus_t aaa =  curandSetPseudoRandomGeneratorSeed(r_int, 5);
-	//err = cudaGetLastError();
 	
 	//auto s = 0; // std::chrono::high_resolution_clock::now();
 	//long long iter_time ;

@@ -12,10 +12,10 @@
     <CudaCompile Include="h_fce.cu">
       <Filter>Source files</Filter>
     </CudaCompile>
-    <CudaCompile Include="ker.cu">
+    <CudaCompile Include="main.cu">
       <Filter>Source files</Filter>
     </CudaCompile>
-    <CudaCompile Include="main.cu">
+    <CudaCompile Include="kernel.cu">
       <Filter>Source files</Filter>
     </CudaCompile>
     <CudaCompile Include="alg.cu">

@@ -8,7 +8,7 @@
 #include"h_fce.cuh"
 #include <curand.h>
 
-__host__ void Diff_ev(const float w, const float p, const float* init_pop, const float* init_vals, const int* a, const int* b, float* best_pos, float* best_vals, float time_per_iter);
+void Diff_ev(const float w, const float p, const float* init_pop, const float* init_vals, const int* a, const int* b, float* best_pos, float* best_vals, float time_per_iter);
 
 __host__ void PSO(const float* init_pop,const float* init_vals, const int* a, const int* b, float* best_pos, float* best_vals, float time_per_iter);
 

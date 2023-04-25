@@ -89,8 +89,8 @@
   <ItemGroup>
     <CudaCompile Include="alg.cu" />
     <CudaCompile Include="h_fce.cu" />
-    <CudaCompile Include="kernel.cu" />
     <CudaCompile Include="main.cu" />
+    <CudaCompile Include="old.cu" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="alg.cuh" />

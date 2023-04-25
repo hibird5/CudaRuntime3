@@ -21,22 +21,24 @@
 #include <thrust/device_vector.h>
 
 
-#define num_of_agents 16
-#define num_of_runs 4
+#define num_of_agents 512
+#define num_of_runs 9
 #define pow_of_agents num_of_agents*num_of_agents
-#define num_of_dims 3
-#define num_of_runs_add 2
-#define dims_to_log 4
+#define num_of_dims 2
+#define num_of_runs_add 1
+#define dims_to_log 2
 #define dims_to_log_half dims_to_log/2
 
 #define num_of_indices num_of_agents*num_of_dims
-#define input_func 0
+#define input_func ST
 #define lo -5
 #define hi 5
 #define num_of_best_indices 1
-#define max_iter 50
+#define max_iter 100
 #define num_of_agents_half num_of_agents/2
 #define pow_of_agents_half pow_of_agents/2
+#define SPHEERE 2
+#define ST 1
 
 
 __global__ void get_constr(const int min, const int max, int* a, int* b);
@@ -46,8 +48,9 @@ __global__ void init_pop_pos(float* agent_pos, const int* a, const int* b, unsig
 __global__ void cost_func(const float* agent_pos, float* agent_val);
 
 __global__ void cost_func(const float* agent_pos, float* agent_val, float* tmp);
-//__global__ void sphere(const float* agent_pos, float* agent_val);
-//__global__ void styblinski–tang(const float* agent_pos, float* agent_val);
+
+//__device__ float sphere(const float& agent_pos);
+//__device__ float styblinski–tang(const float& agent_pos);
 
 __global__ void searchForBestKernel(volatile float* objectiveValues, unsigned int* indices);
 

@@ -89,12 +89,18 @@
   <ItemGroup>
     <CudaCompile Include="alg.cu" />
     <CudaCompile Include="h_fce.cu" />
+    <CudaCompile Include="kernel.cu" />
     <CudaCompile Include="main.cu" />
-    <CudaCompile Include="old.cu" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="alg.cuh" />
     <ClInclude Include="h_fce.cuh" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\Doxyfile" />
+  </ItemGroup>
+  <ItemGroup>
+    <Image Include="project_logo.png" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

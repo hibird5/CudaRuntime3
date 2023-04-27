@@ -7,15 +7,18 @@
     <Filter Include="Header files">
       <UniqueIdentifier>{8205bc81-fc6e-46d1-be34-1a4a1d0067a2}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Doc">
+      <UniqueIdentifier>{0e2524ad-1414-4591-9a58-221cf00fc6e6}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <CudaCompile Include="h_fce.cu">
       <Filter>Source files</Filter>
     </CudaCompile>
-    <CudaCompile Include="old.cu">
+    <CudaCompile Include="main.cu">
       <Filter>Source files</Filter>
     </CudaCompile>
-    <CudaCompile Include="main.cu">
+    <CudaCompile Include="kernel.cu">
       <Filter>Source files</Filter>
     </CudaCompile>
     <CudaCompile Include="alg.cu">
@@ -29,5 +32,15 @@
     <ClInclude Include="alg.cuh">
       <Filter>Header files</Filter>
     </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\Doxyfile">
+      <Filter>Doc</Filter>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <Image Include="project_logo.png">
+      <Filter>Doc</Filter>
+    </Image>
   </ItemGroup>
 </Project>

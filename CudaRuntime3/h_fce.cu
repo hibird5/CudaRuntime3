@@ -15,17 +15,17 @@ __global__ void init_pop_pos(float* agent_pos, const int* a, const int* b,unsign
 	curandState state;
 	curand_init(seed, index, 0, &state);
 
-	agent_pos[index] = (index < num_of_indices) ?
+	agent_pos[index] = (index < NUM_OF_INDICES) ?
 		a[threadIdx.x] + curand_uniform(&state) * (b[threadIdx.x] - a[threadIdx.x]) : 0;
 
 }
 
 __global__ void cost_func(const float* agent_pos, float* agent_val)
 {
-	unsigned int agent = blockIdx.x * num_of_dims;
-	__shared__ float tmp[num_of_agents*dims_to_log];
+	unsigned int agent = blockIdx.x * NUM_OF_DIMS;
+	__shared__ float tmp[NUM_OF_AGENTS*DIMS_TO_LOG];
 	unsigned int index = threadIdx.x + agent;
-	unsigned int step = dims_to_log_half;
+	unsigned int step = DIMS_TO_LOG_HALF;
 	unsigned int step_index = index + step;
 
 	agent_val[blockIdx.x] = 0;
@@ -34,7 +34,7 @@ __global__ void cost_func(const float* agent_pos, float* agent_val)
 	switch (input_func)
 	{
 	case 1:
-		tmp[index] += ((step_index < agent + num_of_dims) ?
+		tmp[index] += ((step_index < agent + NUM_OF_DIMS) ?
 			(__powf(fabs(agent_pos[index]), 4) - 16 * __powf(fabs(agent_pos[index]), 2) + 5 * agent_pos[index] +
 				powf(fabs(agent_pos[step_index]), 4) - 16 * powf(fabs(agent_pos[step_index]), 2) + 5 * agent_pos[step_index]) / 2
 			:
@@ -42,7 +42,7 @@ __global__ void cost_func(const float* agent_pos, float* agent_val)
 		break;
 
 	case 2:
-		tmp[index] += ((step_index < agent + num_of_dims) ?
+		tmp[index] += ((step_index < agent + NUM_OF_DIMS) ?
 			agent_pos[index] * agent_pos[index] + agent_pos[step_index] * agent_pos[step_index]
 			:
 			agent_pos[index] * agent_pos[index]);
@@ -55,7 +55,7 @@ __global__ void cost_func(const float* agent_pos, float* agent_val)
 	}
 	step >>= 1;
 #pragma unroll
-	for (auto i = 0; i < num_of_runs_add; i++) {
+	for (auto i = 0; i < NUM_OF_RUNS_ADD; i++) {
 		step_index = threadIdx.x + step;
 		tmp[index] += ((step_index) < 2*step) ? tmp[agent + step_index] : 0;
 		step >>= 1;
@@ -67,19 +67,19 @@ __global__ void cost_func(const float* agent_pos, float* agent_val)
 
 __global__ void cost_func(const float* agent_pos, float* agent_val, float* tmp)
 {
-	unsigned int agent = blockIdx.x * num_of_dims + blockIdx.y * num_of_indices;
-	//__shared__ float tmp[num_of_agents][dims_to_log_half];
+	unsigned int agent = blockIdx.x * NUM_OF_DIMS + blockIdx.y * NUM_OF_INDICES;
+	//__shared__ float tmp[NUM_OF_AGENTS][DIMS_TO_LOG_HALF];
 	unsigned int index = threadIdx.x + agent;
-	unsigned int step = dims_to_log_half;
+	unsigned int step = DIMS_TO_LOG_HALF;
 	unsigned int step_index = index + step;
 
-	//agent_val[blockIdx.x + blockIdx.y * num_of_agents] = 0;
+	//agent_val[blockIdx.x + blockIdx.y * NUM_OF_AGENTS] = 0;
 	tmp[index] = 0;
 
 	switch (input_func)
 	{
 	case 1:
-		tmp[index] += ((step_index < agent + num_of_dims) ?
+		tmp[index] += ((step_index < agent + NUM_OF_DIMS) ?
 			(__powf(fabs(agent_pos[index]), 4) - 16 * __powf(fabs(agent_pos[index]), 2) + 5 * agent_pos[index] +
 				powf(fabs(agent_pos[step_index]), 4) - 16 * powf(fabs(agent_pos[step_index]), 2) + 5 * agent_pos[step_index]) / 2
 			:
@@ -87,7 +87,7 @@ __global__ void cost_func(const float* agent_pos, float* agent_val, float* tmp)
 		break;
 
 	case 2:
-		tmp[index] += ((step_index < agent + num_of_dims) ?
+		tmp[index] += ((step_index < agent + NUM_OF_DIMS) ?
 			agent_pos[index] * agent_pos[index] + agent_pos[step_index] * agent_pos[step_index]
 			:
 			agent_pos[index] * agent_pos[index]);
@@ -100,14 +100,13 @@ __global__ void cost_func(const float* agent_pos, float* agent_val, float* tmp)
 	}
 	step >>= 1;
 #pragma unroll
-	for (auto i = 0; i < num_of_runs_add; i++) {
+	for (auto i = 0; i < NUM_OF_RUNS_ADD; i++) {
 		step_index = threadIdx.x + step;
 		tmp[index] += ((step_index) < 2 * step) ? tmp[agent + step_index] : 0; // 2 * step
 		step >>= 1;
 		__syncthreads();
 	}
-	agent_val[blockIdx.x + blockIdx.y * num_of_agents] = tmp[agent];
-	
+	agent_val[blockIdx.x + blockIdx.y * NUM_OF_AGENTS] = tmp[agent];
 }
 //__device__ float sphere(const float& agent_pos)
 //{
@@ -121,18 +120,18 @@ __global__ void cost_func(const float* agent_pos, float* agent_val, float* tmp)
 __global__ void searchForBestKernel(volatile float* objectiveValues, unsigned int* indices)
 {
 	unsigned int id = threadIdx.x + blockIdx.x * blockDim.x;
-	__shared__ float oVs[num_of_agents];
-	__shared__ unsigned int ind[num_of_agents];
+	__shared__ float oVs[NUM_OF_AGENTS];
+	__shared__ unsigned int ind[NUM_OF_AGENTS];
 
 	oVs[id] = objectiveValues[id];
-	oVs[id + num_of_agents_half] = objectiveValues[id + num_of_agents_half];
+	oVs[id + NUM_OF_AGENTS_HALF] = objectiveValues[id + NUM_OF_AGENTS_HALF];
 	ind[id] = id;
-	ind[id + num_of_agents_half] = id + num_of_agents_half;
+	ind[id + NUM_OF_AGENTS_HALF] = id + NUM_OF_AGENTS_HALF;
 	__syncthreads();
-	unsigned int step = num_of_agents_half;
+	unsigned int step = NUM_OF_AGENTS_HALF;
 
 #pragma unroll
-	for (int i = 0; i < num_of_runs; ++i)
+	for (int i = 0; i < NUM_OF_RUNS; ++i)
 	{
 		ind[id] = ((oVs[ind[id + step]] < oVs[ind[id]]) ? ind[id + step] : ind[id]);
 		step >>= 1;
@@ -144,24 +143,24 @@ __global__ void searchForBestKernel(volatile float* objectiveValues, unsigned in
 
 __global__ void searchForBestThree(volatile float* objectiveValues, unsigned int* best_three)
 {
-	best_three[0] = num_of_agents;
-	best_three[1] = num_of_agents;
+	best_three[0] = NUM_OF_AGENTS;
+	best_three[1] = NUM_OF_AGENTS;
 
 	unsigned int id = threadIdx.x + blockIdx.x * blockDim.x;
-	__shared__ float oVs[num_of_agents];
-	__shared__ unsigned int ind[num_of_agents];
+	__shared__ float oVs[NUM_OF_AGENTS];
+	__shared__ unsigned int ind[NUM_OF_AGENTS];
 
 	for (int j = 0; j < 3; j++) {
 
 		oVs[id] = objectiveValues[id];
-		oVs[id + num_of_agents_half] = objectiveValues[id + num_of_agents_half];
+		oVs[id + NUM_OF_AGENTS_HALF] = objectiveValues[id + NUM_OF_AGENTS_HALF];
 		ind[id] = id;
-		ind[id + num_of_agents_half] = id + num_of_agents_half;
+		ind[id + NUM_OF_AGENTS_HALF] = id + NUM_OF_AGENTS_HALF;
 		__syncthreads();
-		unsigned int step = num_of_agents_half;
+		unsigned int step = NUM_OF_AGENTS_HALF;
 
 #pragma unroll
-		for (int i = 0; i < num_of_runs; ++i)
+		for (int i = 0; i < NUM_OF_RUNS; ++i)
 		{
 			unsigned int ind_s = id + step;
 			if (ind[id] == best_three[0] || ind[id] == best_three[1])
@@ -186,16 +185,16 @@ __global__ void DE(const float w, const float p, const int* a, const int* b,
 {
 	float u_tmp = 0;
 	float u;
-	unsigned int index = threadIdx.x + blockIdx.x * num_of_dims;
+	unsigned int index = threadIdx.x + blockIdx.x * NUM_OF_DIMS;
 	unsigned int r_index = 4 * index;
 	unsigned int i_r1, i_r2, i_r3, i_r4;
 
-	i_r1 = (Ri[r_index + 0] % num_of_agents) * num_of_dims + threadIdx.x;
-	i_r2 = (Ri[r_index + 1] % num_of_agents) * num_of_dims + threadIdx.x;
-	i_r3 = (Ri[r_index + 2] % num_of_agents) * num_of_dims + threadIdx.x;
-	i_r4 = (Ri[r_index + 3] % num_of_agents) * num_of_dims + threadIdx.x;
+	i_r1 = (Ri[r_index + 0] % NUM_OF_AGENTS) * NUM_OF_DIMS + threadIdx.x;
+	i_r2 = (Ri[r_index + 1] % NUM_OF_AGENTS) * NUM_OF_DIMS + threadIdx.x;
+	i_r3 = (Ri[r_index + 2] % NUM_OF_AGENTS) * NUM_OF_DIMS + threadIdx.x;
+	i_r4 = (Ri[r_index + 3] % NUM_OF_AGENTS) * NUM_OF_DIMS + threadIdx.x;
 
-	u_tmp = (index < num_of_indices) ?
+	u_tmp = (index < NUM_OF_INDICES) ?
 		agent_pos[best_sol[0] * blockIdx.x + threadIdx.x] + w * (agent_pos[i_r1] + agent_pos[i_r2] - agent_pos[i_r3] - agent_pos[i_r4])
 		//agent_pos[i_r1] + w * (agent_pos[i_r2] - agent_pos[i_r3])
 		:
@@ -215,10 +214,10 @@ __global__ void pso_f(const float w, const float c1, const float c2, const int* 
 {
 	float V = 0;
 	float tmp = 0;
-	unsigned int index = threadIdx.x + blockIdx.x * num_of_dims;
-	unsigned int best_index = threadIdx.x + best_sol[0] * num_of_dims;
+	unsigned int index = threadIdx.x + blockIdx.x * NUM_OF_DIMS;
+	unsigned int best_index = threadIdx.x + best_sol[0] * NUM_OF_DIMS;
 	
-	unsigned int r2 = index + num_of_indices;
+	unsigned int r2 = index + NUM_OF_INDICES;
 	
 	V = w * V + c1 * r_i[index]*(agent_best_pos[index] - agent_pos[index]) + c2 * r_i[r2] 
 		* (agent_best_pos[best_index] - agent_pos[index]);
@@ -243,8 +242,8 @@ __global__ void ffa(const float alfa, const float beta, const float gamma, const
 
 	unsigned int index_x = blockIdx.x * blockDim.x + threadIdx.x;
 	unsigned int index_y = blockIdx.y * blockDim.x + threadIdx.x;
-	unsigned int index_r = index_x + agent_y * num_of_indices;
-	unsigned int index	= index_x + blockDim.x * num_of_agents * agent_y;	// index of pos to save
+	unsigned int index_r = index_x + agent_y * NUM_OF_INDICES;
+	unsigned int index	= index_x + blockDim.x * NUM_OF_AGENTS * agent_y;	// index of pos to save
 	
 	float R;
 	float tmp;
@@ -252,7 +251,7 @@ __global__ void ffa(const float alfa, const float beta, const float gamma, const
 	if (agent_val[agent_y] < agent_val[agent_x]) {
 		R = 0;
 #pragma unroll
-		for (auto i = 0; i < num_of_dims; i++) {
+		for (auto i = 0; i < NUM_OF_DIMS; i++) {
 			R += __powf(agent_pos[offset_x + i] - agent_pos[offset_y + i], 2);	//calc distance
 		}
 
@@ -271,16 +270,16 @@ __global__ void ffa(const float alfa, const float beta, const float gamma, const
 __global__ void GWO(const unsigned int* best_ind, const float* r_a, const int* a, const int* b,
 	const float A, const float* agent_pos, float* agent_new_pos) 
 {
-	unsigned int index    = threadIdx.x + blockIdx.x * num_of_dims;
+	unsigned int index    = threadIdx.x + blockIdx.x * NUM_OF_DIMS;
 	
-	unsigned int A_index  = threadIdx.x + best_ind[0] * num_of_dims;
-	unsigned int B_index  = threadIdx.x + best_ind[1] * num_of_dims;
-	unsigned int G_index  = threadIdx.x + best_ind[2]* num_of_dims;
+	unsigned int A_index  = threadIdx.x + best_ind[0] * NUM_OF_DIMS;
+	unsigned int B_index  = threadIdx.x + best_ind[1] * NUM_OF_DIMS;
+	unsigned int G_index  = threadIdx.x + best_ind[2]* NUM_OF_DIMS;
 
 	unsigned int rA_index = blockIdx.x;
-	unsigned int rB_index = blockIdx.x + num_of_agents;
-	unsigned int rG_index = blockIdx.x + 2 * num_of_agents;
-	unsigned int r_a_index= 3 * num_of_agents;
+	unsigned int rB_index = blockIdx.x + NUM_OF_AGENTS;
+	unsigned int rG_index = blockIdx.x + 2 * NUM_OF_AGENTS;
+	unsigned int r_a_index= 3 * NUM_OF_AGENTS;
 
 	float a_alfa = 2 * A * r_a[rA_index] - A;
 	float a_beta = 2 * A * r_a[rB_index] - A;
@@ -303,25 +302,25 @@ __global__ void GWO(const unsigned int* best_ind, const float* r_a, const int* a
 __global__ void iGWO_nh(unsigned int* r_w, const float* r, const int* a, const int* b,
 	const float* distance, float* agent_pos, const float* agent_new_pos, float* nh_pos, unsigned int* ind_to_choose)
 {
-	unsigned int agent = blockIdx.x * num_of_dims;
+	unsigned int agent = blockIdx.x * NUM_OF_DIMS;
 	unsigned int index = 0;
 	unsigned int nh_index = 0;
-	unsigned int ind_to_comp = blockIdx.x + blockIdx.x * num_of_agents;	// dist of curr agent n X_gwo
-	unsigned int dist_y = blockIdx.x + blockIdx.y * num_of_agents;		// dist of other agents n X_gwo
-	unsigned int nh = blockIdx.x + num_of_agents;
+	unsigned int ind_to_comp = blockIdx.x + blockIdx.x * NUM_OF_AGENTS;	// dist of curr agent n X_gwo
+	unsigned int dist_y = blockIdx.x + blockIdx.y * NUM_OF_AGENTS;		// dist of other agents n X_gwo
+	unsigned int nh = blockIdx.x + NUM_OF_AGENTS;
 
-	r_w[blockIdx.x] = r_w[blockIdx.x] % num_of_agents;
-	r_w[nh] = r_w[nh] % num_of_agents;
+	r_w[blockIdx.x] = r_w[blockIdx.x] % NUM_OF_AGENTS;
+	r_w[nh] = r_w[nh] % NUM_OF_AGENTS;
 
 	ind_to_choose[dist_y] = (distance[dist_y] <= distance[ind_to_comp]) ? blockIdx.y : blockIdx.x;
 
 
 		index = agent + threadIdx.x;
-		nh_index = blockIdx.x + r_w[nh] * num_of_agents;
+		nh_index = blockIdx.x + r_w[nh] * NUM_OF_AGENTS;
 		nh_pos[index] = (ind_to_choose[nh_index] == blockIdx.x) ? //calc X_gwo pos otherwise calc with agent in nh
-			agent_pos[index] + r[index] * (agent_new_pos[index] * agent_pos[r_w[blockIdx.x] * num_of_dims + threadIdx.x])
+			agent_pos[index] + r[index] * (agent_new_pos[index] * agent_pos[r_w[blockIdx.x] * NUM_OF_DIMS + threadIdx.x])
 			:
-			agent_pos[index] + r[index] * (agent_pos[ind_to_choose[nh_index]] * agent_pos[r_w[blockIdx.x] * num_of_dims + threadIdx.x]);
+			agent_pos[index] + r[index] * (agent_pos[ind_to_choose[nh_index]] * agent_pos[r_w[blockIdx.x] * NUM_OF_DIMS + threadIdx.x]);
 
 	nh_pos[index] = (lo <= nh_pos[index]) ? nh_pos[index] : lo;
 	nh_pos[index] = (hi >= nh_pos[index]) ? nh_pos[index] : hi;
@@ -330,8 +329,8 @@ __global__ void iGWO_nh(unsigned int* r_w, const float* r, const int* a, const i
 __global__ void abc_rns(const float* agent_pos, float* agent_new_pos, const int* a, const int* b, const float* r, const unsigned int* rI) {
 
 	float tmp;
-	unsigned int index = threadIdx.x + blockIdx.x * num_of_dims;
-	unsigned int r_index = threadIdx.x + rI[blockIdx.x] % num_of_agents * num_of_dims;
+	unsigned int index = threadIdx.x + blockIdx.x * NUM_OF_DIMS;
+	unsigned int r_index = threadIdx.x + rI[blockIdx.x] % NUM_OF_AGENTS * NUM_OF_DIMS;
 	r_index = (r_index == index) ? r_index + threadIdx.x : r_index;
 
 	tmp = agent_pos[index] + (2 * r[index] - 1) * (agent_pos[index] - agent_pos[r_index]);
@@ -344,9 +343,9 @@ __global__ void abc_rns(const float* agent_pos, float* agent_new_pos,const unsig
 	const int* a, const int* b, const float*r, const unsigned int* rI) {
 	
 	float tmp;
-	unsigned int index_to_save = threadIdx.x + blockIdx.x * num_of_dims;
-	unsigned int index_to_compute = threadIdx.x + indices_to_compute[blockIdx.x] * num_of_dims;
-	unsigned int r_index = threadIdx.x + (rI[blockIdx.x] % num_of_agents) * num_of_dims;
+	unsigned int index_to_save = threadIdx.x + blockIdx.x * NUM_OF_DIMS;
+	unsigned int index_to_compute = threadIdx.x + indices_to_compute[blockIdx.x] * NUM_OF_DIMS;
+	unsigned int r_index = threadIdx.x + (rI[blockIdx.x] % NUM_OF_AGENTS) * NUM_OF_DIMS;
 	r_index = (r_index == index_to_compute) ? r_index + threadIdx.x : r_index;
 
 	tmp = agent_pos[index_to_save] + (2 * r[index_to_compute] - 1) * (agent_pos[index_to_compute] - agent_pos[r_index]);
@@ -355,42 +354,45 @@ __global__ void abc_rns(const float* agent_pos, float* agent_new_pos,const unsig
 	agent_new_pos[index_to_save] = (b[threadIdx.x] >= tmp) ? tmp : b[threadIdx.x];
 }
 
-__global__ void calc_distances(const float* agent_pos, float* distance)
+__global__ void calc_distances(const float* agent_pos, float* tmp_distance, float* distance)
 {
-	unsigned int offset_x = blockIdx.x * num_of_dims;
-	unsigned int offset_y = blockIdx.y * num_of_dims;
+	unsigned int offset_x = blockIdx.x * NUM_OF_DIMS;
+	unsigned int index_x = threadIdx.x + blockIdx.x * NUM_OF_DIMS;
+	unsigned int offset_y = blockIdx.y * NUM_OF_DIMS;
+	unsigned int index_y = threadIdx.x + blockIdx.y * NUM_OF_DIMS;
 
-	unsigned int index = 0;	// index of pos to save
+	unsigned int index = threadIdx.x + blockIdx.x * NUM_OF_DIMS + blockIdx.y * NUM_OF_INDICES;	// index of pos to save
+	unsigned int step = DIMS_TO_LOG_HALF;
 
 	float R = 0;
 
 #pragma unroll
-	for (auto i = 0; i < num_of_dims; i++) {
-			R += __powf(agent_pos[offset_x + i] - agent_pos[offset_y + i], 2);
+	for (auto i = 0; i < NUM_OF_DIMS; i++) {
+			R += __powf(fabs(agent_pos[offset_x + i] - agent_pos[offset_y + i]), 2);
 	}
 
-	distance[blockIdx.x + blockIdx.y * num_of_agents] = sqrtf(R);
+	distance[blockIdx.x + blockIdx.y * NUM_OF_AGENTS] = sqrt(R);
 }
 
-__global__ void calc_distances(const float* agent_pos, const float* agent_new_pos, float* distance)
-{
-	unsigned int offset_x = blockIdx.x * num_of_dims;
-	unsigned int offset_y = blockIdx.y * num_of_dims;
-
-	unsigned int index = 0;	// index of pos to save
-
-	float R = 0;
-
-#pragma unroll
-		for (auto i = 0; i < num_of_dims; i++) {
-			R+= (blockIdx.x == blockIdx.y) ? 
-				__powf(agent_new_pos[offset_x + i] - agent_pos[offset_y + i], 2) 
-				:
-				__powf(agent_pos[offset_x + i] - agent_pos[offset_y + i], 2);
-		}
-
-	distance[blockIdx.x + blockIdx.y * num_of_agents] = sqrtf(R);
-}
+//__global__ void calc_distances(const float* agent_pos, const float* agent_new_pos, float* distance)
+//{
+//	unsigned int offset_x = blockIdx.x * NUM_OF_DIMS;
+//	unsigned int offset_y = blockIdx.y * NUM_OF_DIMS;
+//
+//	unsigned int index = 0;	// index of pos to save
+//
+//	float R = 0;
+//
+//#pragma unroll
+//		for (auto i = 0; i < NUM_OF_DIMS; i++) {
+//			R+= (blockIdx.x == blockIdx.y) ? 
+//				__powf(agent_new_pos[offset_x + i] - agent_pos[offset_y + i], 2) 
+//				:
+//				__powf(agent_pos[offset_x + i] - agent_pos[offset_y + i], 2);
+//		}
+//
+//	distance[blockIdx.x + blockIdx.y * NUM_OF_AGENTS] = sqrtf(R);
+//}
 
 __global__ void compare_two_pop(float* pos, float* val, const float* GWO_pos, const float* GWO_val, 
 	const float* nh_pos, const float* nh_val)
@@ -418,39 +420,38 @@ __global__ void compare_two_pop(float* old_pos, float* old_val, const float* new
 	abbadon_dec[blockIdx.x] += (new_val[blockIdx.x] < old_val[blockIdx.x]) ? 0 : 1;
 }
 
-__global__ void compare_ff_pos(float* old_pos, float* old_val, const float* new_pos, const float* new_val)
+__global__ void compare_ff_pop(float* old_pos, float* old_val, const float* new_pos, const float* new_val)
 {
 	unsigned int ind = threadIdx.x + blockIdx.x * blockDim.x;
-	unsigned int old_index, new_index;
-	unsigned int max_agent = num_of_agents * (num_of_agents-1);
+	unsigned int max_agent = NUM_OF_AGENTS * (NUM_OF_AGENTS-1);
 
 #pragma unroll
-	for (auto i = blockIdx.x; i < blockIdx.x + max_agent; i += num_of_agents) {
+	for (auto i = blockIdx.x; i < blockIdx.x + max_agent; i += NUM_OF_AGENTS) {
 		
 		old_val[blockIdx.x] = (new_val[i] < old_val[blockIdx.x]) ? new_val[i] : old_val[blockIdx.x];
-		old_pos[ind] = (new_val[i] <= old_val[blockIdx.x]) ? new_pos[i * num_of_dims + threadIdx.x] : old_pos[ind];
+		old_pos[ind] = (new_val[i] <= old_val[blockIdx.x]) ? new_pos[i * NUM_OF_DIMS + threadIdx.x] : old_pos[ind];
 		
 	}
 }
 
 __global__ void probability_selection(const float* val, const float* r, unsigned int* index_to_rns) {
-	__shared__ float fit[num_of_agents];
-	__shared__ float fit_sum[num_of_agents];
-	__shared__ float tmp_sum[num_of_agents];
+	__shared__ float fit[NUM_OF_AGENTS];
+	__shared__ float fit_sum[NUM_OF_AGENTS];
+	__shared__ float tmp_sum[NUM_OF_AGENTS];
 	unsigned int step = 1;
 	unsigned int step_index = 0;
 	fit_sum[threadIdx.x] = fit[threadIdx.x] = (val[threadIdx.x] < 0) ? 1 + fabs(val[threadIdx.x]) : 1 / (1 + fabs(val[threadIdx.x]));
 	__syncthreads();
 #pragma unroll
-	for (auto i = 0; i < num_of_runs; ++i)
+	for (auto i = 0; i < NUM_OF_RUNS; ++i)
 	{
 	step_index = step + threadIdx.x;
-	if (step_index < num_of_agents)
+	if (step_index < NUM_OF_AGENTS)
 	{
 		tmp_sum[step_index] += fit_sum[threadIdx.x];
 	}
 	__syncthreads();
-	if (step_index < num_of_agents)
+	if (step_index < NUM_OF_AGENTS)
 	{
 		fit_sum[step_index] += tmp_sum[step_index];
 	}
@@ -458,10 +459,10 @@ __global__ void probability_selection(const float* val, const float* r, unsigned
 	}
 
 	__syncthreads();
-	fit[threadIdx.x] = fit_sum[threadIdx.x] / fit_sum[num_of_agents-1];
+	fit[threadIdx.x] = fit_sum[threadIdx.x] / fit_sum[NUM_OF_AGENTS-1];
 
 	// choose based on probability
-	unsigned int start_index = (unsigned int)floor(r[threadIdx.x] * (num_of_agents - 1));
+	unsigned int start_index = (unsigned int)floor(r[threadIdx.x] * (NUM_OF_AGENTS - 1));
 
 	int i;
 	int j = i = (r[threadIdx.x] >= fit[start_index]) ? 1 : -1;
@@ -473,7 +474,7 @@ __global__ void probability_selection(const float* val, const float* r, unsigned
 		{
 			start_index += i;
 		}
-		index_to_rns[threadIdx.x] = (num_of_agents <= start_index) ? num_of_agents - 1 : start_index;
+		index_to_rns[threadIdx.x] = (NUM_OF_AGENTS <= start_index) ? NUM_OF_AGENTS - 1 : start_index;
 		break;
 	case -1:
 		while (r[threadIdx.x] < fit[start_index])
@@ -523,14 +524,14 @@ void error_h(cudaError_t e) {
 
 
 
-//__global__ void best_sol(const int num_of_agents, const float* agent_val, unsigned int* indice, float* best_val)
+//__global__ void best_sol(const int NUM_OF_AGENTS, const float* agent_val, unsigned int* indice, float* best_val)
 //{
-//	int j = blockIdx.x * num_of_agents / blockDim.x;
+//	int j = blockIdx.x * NUM_OF_AGENTS / blockDim.x;
 //	best_val[blockIdx.x] = agent_val[j];
 //	indice[blockIdx.x] = j;
 //
 //#pragma unroll
-//	for (unsigned int i = j; i < j + num_of_agents / blockDim.x; ++i)
+//	for (unsigned int i = j; i < j + NUM_OF_AGENTS / blockDim.x; ++i)
 //	{
 //		indice[blockIdx.x] = (agent_val[i] < best_val[blockIdx.x]) ? i : indice[blockIdx.x];
 //		best_val[blockIdx.x] = (i == indice[blockIdx.x]) ? agent_val[i] : best_val[blockIdx.x];
@@ -545,8 +546,8 @@ void error_h(cudaError_t e) {
 	//	unsigned int index_y = threadIdx.x + blockIdx.y * blockDim.y;
 	//	unsigned int agent_start = blockIdx.x * blockDim.x*sizeof(double);
 	//
-	//	__shared__ float R_i[num_of_indices];
-	//	__shared__ float  R[num_of_agents];
+	//	__shared__ float R_i[NUM_OF_INDICES];
+	//	__shared__ float  R[NUM_OF_AGENTS];
 	//	float  tmp;
 	//	float  agent_diff = agent_pos[index] - agent_pos[best_sol[0]];
 	//	curandState r;
@@ -573,10 +574,10 @@ void error_h(cudaError_t e) {
 //	unsigned int agent_x = blockIdx.x;
 //	unsigned int agent_y = threadIdx.x;
 //
-//	unsigned int offset_x = agent_x * num_of_dims;
-//	unsigned int offset_y = agent_y * num_of_dims;
+//	unsigned int offset_x = agent_x * NUM_OF_DIMS;
+//	unsigned int offset_y = agent_y * NUM_OF_DIMS;
 //
-//	unsigned int offset_Y = agent_y * (num_of_agents)*num_of_dims;
+//	unsigned int offset_Y = agent_y * (NUM_OF_AGENTS)*NUM_OF_DIMS;
 //
 //	unsigned int x_indice;
 //
@@ -589,12 +590,12 @@ void error_h(cudaError_t e) {
 //	if (agent_val[agent_y] < agent_val[agent_x]) {
 //		R = 0;
 //#pragma unroll
-//		for (auto i = 0; i < num_of_dims; i++) {
+//		for (auto i = 0; i < NUM_OF_DIMS; i++) {
 //			R += pow(agent_pos[offset_x + i] - agent_pos[offset_y + i], 2);	//calc distance
 //		}
 //
 //#pragma unroll
-//		for (auto i = 0; i < num_of_dims; i++) {
+//		for (auto i = 0; i < NUM_OF_DIMS; i++) {
 //
 //			x_indice = offset_x + i;
 //			tmp = agent_pos[x_indice] + beta * __expf(-gamma * R) * (agent_pos[x_indice] - agent_pos[offset_y + i])
@@ -607,7 +608,7 @@ void error_h(cudaError_t e) {
 //
 //	}
 //	else {
-//		for (auto i = 0; i < num_of_dims; i++) {
+//		for (auto i = 0; i < NUM_OF_DIMS; i++) {
 //			x_indice = offset_x + i;
 //			index = x_indice + offset_Y;
 //			agent_new_pos[index] = agent_pos[x_indice];		//save old 

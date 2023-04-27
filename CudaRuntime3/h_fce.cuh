@@ -21,22 +21,22 @@
 #include <thrust/device_vector.h>
 
 
-#define num_of_agents 512
-#define num_of_runs 9
-#define pow_of_agents num_of_agents*num_of_agents
-#define num_of_dims 2
-#define num_of_runs_add 1
-#define dims_to_log 2
-#define dims_to_log_half dims_to_log/2
+#define NUM_OF_AGENTS 256
+#define NUM_OF_RUNS 8
+#define POW_OF_AGENTS NUM_OF_AGENTS*NUM_OF_AGENTS
+#define NUM_OF_DIMS 2
+#define NUM_OF_RUNS_ADD 1
+#define DIMS_TO_LOG 2
+#define DIMS_TO_LOG_HALF DIMS_TO_LOG/2
 
-#define num_of_indices num_of_agents*num_of_dims
-#define input_func ST
-#define lo -5
-#define hi 5
-#define num_of_best_indices 1
-#define max_iter 100
-#define num_of_agents_half num_of_agents/2
-#define pow_of_agents_half pow_of_agents/2
+#define NUM_OF_INDICES NUM_OF_AGENTS*NUM_OF_DIMS
+#define input_func SPHEERE
+#define lo -500
+#define hi 500
+#define MAX_ITER 1000
+#define NUM_OF_AGENTS_HALF NUM_OF_AGENTS/2
+#define POW_OF_AGENTS_HALF POW_OF_AGENTS/2
+#define ROSENBROCK 3
 #define SPHEERE 2
 #define ST 1
 
@@ -77,9 +77,9 @@ __global__ void abc_rns(const float* agent_pos, float* agent_new_pos, const int*
 __global__ void abc_rns(const float* agent_pos, float* agent_new_pos, const unsigned int* indices_to_compute,
 	const int* a, const int* b, const float* r, const unsigned int* rI);
 
-__global__ void calc_distances(const float* agent_pos, const float* agent_new_pos, float* distance);
+//__global__ void calc_distances(const float* agent_pos, const float* agent_new_pos, float* distance);
 
-__global__ void calc_distances(const float* agent_pos, float* distance);
+__global__ void calc_distances(const float* agent_pos, float* tmp_distance, float* distance);
 
 __global__ void compare_two_pop(float* pos, float* val, const float* GWO_pos, const float* GWO_val,
 	const float* nh_pos, const float* nh_val);
@@ -88,7 +88,7 @@ __global__ void compare_two_pop(float* f_pos, float* f_val, const float* s_pos, 
 
 __global__ void compare_two_pop(float* old_pos, float* old_val, const float* new_pos, const float* new_val, unsigned int* abbadon_dec);
 
-__global__ void compare_ff_pos(float* old_pos, float* old_val, const float* new_pos, const float* new_val);
+__global__ void compare_ff_pop(float* old_pos, float* old_val, const float* new_pos, const float* new_val);
 
 __global__ void probability_selection(const float* val, const float* r, unsigned int* index_to_rns);
 

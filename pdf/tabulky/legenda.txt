@@ -1,6 +1,6 @@
-case 1 -> sú 
-case 2 ->
-case 3 ->
+case 1 -> je stupajuci pocet iteracii
+case 2 ->    >>  pocet rozmerov
+case 3 ->    >>  pocet agentov
 
 fce 6 -> spheere 
 fce 7 -> Styblinski–Tang 

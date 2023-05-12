@@ -21,19 +21,19 @@
 #include <thrust/device_vector.h>
 
 
-#define NUM_OF_AGENTS 256
-#define NUM_OF_RUNS 8
+#define NUM_OF_AGENTS 64
+#define NUM_OF_RUNS 6
 #define POW_OF_AGENTS NUM_OF_AGENTS*NUM_OF_AGENTS
-#define NUM_OF_DIMS 2
-#define NUM_OF_RUNS_ADD 1
-#define DIMS_TO_LOG 2
+#define NUM_OF_DIMS 10
+#define NUM_OF_RUNS_ADD 4
+#define DIMS_TO_LOG 16
 #define DIMS_TO_LOG_HALF DIMS_TO_LOG/2
 
 #define NUM_OF_INDICES NUM_OF_AGENTS*NUM_OF_DIMS
-#define input_func SPHEERE
-#define lo -500
-#define hi 500
-#define MAX_ITER 1000
+#define input_func ST
+#define lo -5
+#define hi 5
+#define MAX_ITER 50
 #define NUM_OF_AGENTS_HALF NUM_OF_AGENTS/2
 #define POW_OF_AGENTS_HALF POW_OF_AGENTS/2
 #define ROSENBROCK 3

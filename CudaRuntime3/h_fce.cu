@@ -360,7 +360,7 @@ __global__ void calc_distances(const float* agent_pos, float* tmp_distance, floa
 	unsigned int index_x = threadIdx.x + blockIdx.x * NUM_OF_DIMS;
 	unsigned int offset_y = blockIdx.y * NUM_OF_DIMS;
 	unsigned int index_y = threadIdx.x + blockIdx.y * NUM_OF_DIMS;
-
+	
 	unsigned int index = threadIdx.x + blockIdx.x * NUM_OF_DIMS + blockIdx.y * NUM_OF_INDICES;	// index of pos to save
 	unsigned int step = DIMS_TO_LOG_HALF;
 

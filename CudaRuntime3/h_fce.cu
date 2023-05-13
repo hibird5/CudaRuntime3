@@ -267,7 +267,7 @@ __global__ void ffa(const float alfa, const float beta, const float gamma, const
 	__syncthreads();
 }
 
-__global__ void GWO(const unsigned int* best_ind, const float* r_a, const int* a, const int* b,
+__global__ void gwo_new_pos(const unsigned int* best_ind, const float* r_a, const int* a, const int* b,
 	const float A, const float* agent_pos, float* agent_new_pos) 
 {
 	unsigned int index    = threadIdx.x + blockIdx.x * NUM_OF_DIMS;
@@ -356,43 +356,96 @@ __global__ void abc_rns(const float* agent_pos, float* agent_new_pos,const unsig
 
 __global__ void calc_distances(const float* agent_pos, float* tmp_distance, float* distance)
 {
-	unsigned int offset_x = blockIdx.x * NUM_OF_DIMS;
+	unsigned int offset_x = blockIdx.x * NUM_OF_DIMS;							//position in x - axis	
 	unsigned int index_x = threadIdx.x + blockIdx.x * NUM_OF_DIMS;
-	unsigned int offset_y = blockIdx.y * NUM_OF_DIMS;
-	unsigned int index_y = threadIdx.x + blockIdx.y * NUM_OF_DIMS;
+	unsigned int offset_y =NUM_OF_DIMS+ blockIdx.y * NUM_OF_DIMS;							//position in y - axis
+	unsigned int index_y = NUM_OF_DIMS + threadIdx.x + blockIdx.y * NUM_OF_DIMS;
 	
-	unsigned int index = threadIdx.x + blockIdx.x * NUM_OF_DIMS + blockIdx.y * NUM_OF_INDICES;	// index of pos to save
-	unsigned int step = DIMS_TO_LOG_HALF;
+	unsigned int index_to_save = blockIdx.x * DIMS_TO_LOG_HALF + blockIdx.y * DIMS_TO_LOG_HALF * NUM_OF_AGENTS;
+	unsigned int index = threadIdx.x + index_to_save;							//index to parallel addition
+	unsigned int step = DIMS_TO_LOG_HALF;										//step of parallel addition
+	unsigned int step_index_x = index_x + step;
+	unsigned int step_index_y = index_y + step;
+	tmp_distance[index] = 0;
+	
+	tmp_distance[index] += ((step_index_x < offset_x + NUM_OF_DIMS) && (step_index_y < offset_y + NUM_OF_DIMS) ?
+		__powf(fabs(agent_pos[index_x] - agent_pos[index_y]), 2) + __powf(fabs(agent_pos[step_index_x] - agent_pos[step_index_y]), 2)
+		:
+		__powf(fabs(agent_pos[index_x] - agent_pos[index_y]), 2));
+
+	step >>= 1;
+
+#pragma unroll		//parallel addition
+	for (auto i = 0; i < NUM_OF_RUNS_ADD; i++) {
+		auto step_index = index + step;
+		tmp_distance[index] += ((step_index) < index_to_save + DIMS_TO_LOG_HALF) ? tmp_distance[step_index] : 0;
+		step >>= 1;
+		__syncthreads();
+	}
+
+	distance[blockIdx.x + blockIdx.y * NUM_OF_AGENTS] = sqrtf(tmp_distance[index_to_save]);
+}
+
+__global__ void calc_distances(const float* agent_pos, const float* agent_new_pos, float* tmp_distance, float* distance)
+{
+	{
+		unsigned int offset_x = blockIdx.x * NUM_OF_DIMS;							//position in x - axis
+		unsigned int index_x = threadIdx.x + blockIdx.x * NUM_OF_DIMS;			
+		unsigned int offset_y = blockIdx.y * NUM_OF_DIMS;							//position in y - axis
+		unsigned int index_y = threadIdx.x + blockIdx.y * NUM_OF_DIMS;
+
+		unsigned int index_to_save = blockIdx.x * DIMS_TO_LOG_HALF + blockIdx.y * DIMS_TO_LOG_HALF * NUM_OF_AGENTS;  
+		unsigned int index = threadIdx.x + index_to_save;							//index to parallel addition
+		unsigned int step = DIMS_TO_LOG_HALF;										//step of parallel addition
+		unsigned int step_index_x = index_x + step;
+		unsigned int step_index_y = index_y + step;
+		tmp_distance[index] = 0;
+
+		if (blockIdx.x != blockIdx.y)		// distance to other agents
+		{
+			tmp_distance[index] += ((step_index_x < offset_x + NUM_OF_DIMS) && (step_index_y < offset_y + NUM_OF_DIMS) ?
+				__powf(fabs(agent_pos[index_x] - agent_pos[index_y]), 2) + __powf(fabs(agent_pos[step_index_x] - agent_pos[step_index_y]), 2)
+				:
+				__powf(fabs(agent_pos[index_x] - agent_pos[index_y]), 2));
+		}
+		else								// distance to new position
+		{
+			tmp_distance[index] += ((step_index_x < offset_x + NUM_OF_DIMS) && (step_index_y < offset_y + NUM_OF_DIMS) ?
+				__powf(fabs(agent_pos[index_x] - agent_new_pos[index_y]), 2) + __powf(fabs(agent_pos[step_index_x] - agent_new_pos[step_index_y]), 2)
+				:
+				__powf(fabs(agent_pos[index_x] - agent_new_pos[index_y]), 2));
+		}
+		step >>= 1;
+
+#pragma unroll		//parallel addition
+		for (auto i = 0; i < NUM_OF_RUNS_ADD; i++) {
+			auto step_index = index + step;
+			tmp_distance[index] += ((step_index) < index_to_save + DIMS_TO_LOG_HALF) ? tmp_distance[step_index] : 0;
+			step >>= 1;
+			__syncthreads();
+		}
+
+		distance[blockIdx.x + blockIdx.y * NUM_OF_AGENTS] = sqrtf(tmp_distance[index_to_save]);
+	}
+
+
+	unsigned int offset_x = blockIdx.x * NUM_OF_DIMS;
+	unsigned int offset_y = blockIdx.y * NUM_OF_DIMS;
+
+	unsigned int index = 0;	// index of pos to save
 
 	float R = 0;
 
 #pragma unroll
-	for (auto i = 0; i < NUM_OF_DIMS; i++) {
-			R += __powf(fabs(agent_pos[offset_x + i] - agent_pos[offset_y + i]), 2);
-	}
+		for (auto i = 0; i < NUM_OF_DIMS; i++) {
+			R+= (blockIdx.x == blockIdx.y) ? 
+				__powf(agent_new_pos[offset_x + i] - agent_pos[offset_y + i], 2) 
+				:
+				__powf(agent_pos[offset_x + i] - agent_pos[offset_y + i], 2);
+		}
 
-	distance[blockIdx.x + blockIdx.y * NUM_OF_AGENTS] = sqrt(R);
+	distance[blockIdx.x + blockIdx.y * NUM_OF_AGENTS] = sqrtf(R);
 }
-
-//__global__ void calc_distances(const float* agent_pos, const float* agent_new_pos, float* distance)
-//{
-//	unsigned int offset_x = blockIdx.x * NUM_OF_DIMS;
-//	unsigned int offset_y = blockIdx.y * NUM_OF_DIMS;
-//
-//	unsigned int index = 0;	// index of pos to save
-//
-//	float R = 0;
-//
-//#pragma unroll
-//		for (auto i = 0; i < NUM_OF_DIMS; i++) {
-//			R+= (blockIdx.x == blockIdx.y) ? 
-//				__powf(agent_new_pos[offset_x + i] - agent_pos[offset_y + i], 2) 
-//				:
-//				__powf(agent_pos[offset_x + i] - agent_pos[offset_y + i], 2);
-//		}
-//
-//	distance[blockIdx.x + blockIdx.y * NUM_OF_AGENTS] = sqrtf(R);
-//}
 
 __global__ void compare_two_pop(float* pos, float* val, const float* GWO_pos, const float* GWO_val, 
 	const float* nh_pos, const float* nh_val)

@@ -113,7 +113,6 @@ __host__ void PSO(const float w, const float c1, const float c2, const float* in
 	cudaMalloc(&r, num_of_ri * sizeof(float));
 	cudaMalloc(&best_index, NUM_OF_AGENTS_HALF * sizeof(unsigned int));
 
-
 	cudaMemcpy(agent_pos, init_pop, NUM_OF_INDICES * sizeof(float), ::cudaMemcpyDeviceToDevice);
 	cudaMemcpy(agent_best_pos, init_pop, NUM_OF_INDICES * sizeof(float), ::cudaMemcpyDeviceToDevice);
 	cudaMemcpy(agent_val, init_vals, NUM_OF_AGENTS * sizeof(float), ::cudaMemcpyDeviceToDevice);
@@ -256,86 +255,68 @@ __host__ void GWO(const float* init_pop, const float* init_vals, const int* a, c
 
 	float* agent_pos = NULL;
 	float* agent_val = NULL;
+	float* new_pos = NULL;
+	float* new_vals = NULL;
+
+	unsigned int* best_index = NULL;
+	unsigned int* HOST_best_index = (unsigned int*)malloc(NUM_OF_AGENTS_HALF * sizeof(unsigned int));
+	float* r;
+	float A = 0;
+
+	cudaError_t err;
+	curandGenerator_t r_in;
+	curandCreateGenerator(&r_in, CURAND_RNG_PSEUDO_PHILOX4_32_10);
+	curandSetPseudoRandomGeneratorSeed(r_in, time(NULL));
 
 	cudaMalloc(&agent_pos, NUM_OF_INDICES * sizeof(float));
 	cudaMalloc(&agent_val, NUM_OF_AGENTS * sizeof(float));
+	cudaMalloc(&new_pos, NUM_OF_INDICES * sizeof(float));
+	cudaMalloc(&new_vals, NUM_OF_AGENTS * sizeof(float));
+	cudaMalloc(&best_index, NUM_OF_AGENTS_HALF * sizeof(unsigned int));
+	cudaMalloc(&r, 6 * NUM_OF_AGENTS * sizeof(float));
 
+	cudaMemcpy(agent_pos, init_pop, NUM_OF_INDICES * sizeof(float), ::cudaMemcpyDeviceToDevice);
+	cudaMemcpy(new_pos, init_pop, NUM_OF_INDICES * sizeof(float), ::cudaMemcpyDeviceToDevice);
+	cudaMemcpy(agent_val, init_vals, NUM_OF_AGENTS * sizeof(float), ::cudaMemcpyDeviceToDevice);
+	cudaMemcpy(new_vals, init_vals, NUM_OF_AGENTS * sizeof(float), ::cudaMemcpyDeviceToDevice);
 
+	searchForBestThree << <1, NUM_OF_AGENTS_HALF >> > (agent_val, best_index);
 
-	//float* r_a; float* r_d; float* r;
-	//unsigned int* r_w; unsigned int* r_nh;
-	//curandGenerator_t r_in;
-	//unsigned int num_of_uR = pow(NUM_OF_AGENTS, 2);
-	//cudaMalloc(&r_a, 3 * NUM_OF_AGENTS * sizeof(float));
-	//cudaMalloc(&r_d, 3 * NUM_OF_AGENTS * sizeof(float));
-	//cudaMalloc(&r, NUM_OF_INDICES * sizeof(float));
+	auto s = std::chrono::high_resolution_clock::now();
+	long long iter_time = 0;
 
-	//cudaMalloc(&r_w, NUM_OF_AGENTS * sizeof(unsigned int));
-	//cudaMalloc(&r_nh, NUM_OF_AGENTS * sizeof(unsigned int));
+	for (int i = 0; i < MAX_ITER; ++i)
+	{
+		s = std::chrono::high_resolution_clock::now();
+		curandGenerateUniform(r_in, r, 6 * NUM_OF_AGENTS);
 
-	//curandCreateGenerator(&r_in, CURAND_RNG_PSEUDO_PHILOX4_32_10);
-	//curandSetPseudoRandomGeneratorSeed(r_in, time(NULL));
+		A = 2 - 2 * i / MAX_ITER;
+		gwo_new_pos <<< NUM_OF_AGENTS, NUM_OF_DIMS >>> (best_index, r, a, b, A, agent_pos, new_pos);
+		cost_func <<<NUM_OF_AGENTS, DIMS_TO_LOG_HALF >>> (new_pos, new_vals);
 
-	//curandGenerateUniform(r_in, r_a, 6 * NUM_OF_AGENTS);
-	//curandGenerateUniform(r_in, r, NUM_OF_INDICES);
-	//curandGenerate(r_in, r_w, 2 * NUM_OF_AGENTS);
-	//searchForBestThree << <1, NUM_OF_AGENTS_HALF >> > (agent_val, indice);
+		cudaDeviceSynchronize();
+		compare_two_pop <<<NUM_OF_AGENTS, NUM_OF_DIMS >>> (agent_pos, agent_val, new_pos, new_vals);
+		searchForBestThree <<<1, NUM_OF_AGENTS_HALF >>> (agent_val, best_index);
 
-	//cudaError_t eer;
-	//float A = 0;
-	//double aaa;
-	//auto s = std::chrono::high_resolution_clock::now();;
-	//long long e = 0; long long ee = 0; long long eee = 0; long long eeee = 0; long long eeeee = 0; long long eew = 0; long long eeew = 0;
-	//for (int i = 0; i < MAX_ITER; ++i)
-	//{
-	//	A = 2 - 2 * i / MAX_ITER;
+		iter_time += std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - s).count();
 
+		cudaMemcpy(HOST_best_index, best_index, NUM_OF_AGENTS_HALF * sizeof(unsigned int), ::cudaMemcpyDeviceToHost);
+		cudaMemcpy(&best_vals[i], &agent_val[HOST_best_index[0]], sizeof(float), ::cudaMemcpyDeviceToHost);
 
-	//	//cudaMemcpy(indi, indice, NUM_OF_AGENTS * sizeof(unsigned int), ::cudaMemcpyDeviceToHost);
+		err = cudaGetLastError();
+	}
 
-	//	//err = cudaMemcpy(&best[i], &agent_val[indi[0]], sizeof(float), ::cudaMemcpyDeviceToHost);
+	cudaMemcpy(best_pos, &agent_pos[HOST_best_index[0]], NUM_OF_DIMS * sizeof(float), ::cudaMemcpyDeviceToDevice);
+	time_per_iter = iter_time / MAX_ITER;
 
-	//	GWO << < NUM_OF_AGENTS, NUM_OF_DIMS >> > (indice, r_a, a, b, A, agent_pos, X_gwo);
+	cudaFree(agent_pos);
+	cudaFree(new_pos);
+	cudaFree(agent_val);
+	cudaFree(new_vals);
+	cudaFree(r);
+	cudaFree(best_index);
 
-	//	//calc_distances<<<agents,1>>>(agent_pos, dist_gwo);
-
-	//	//iGWO_nh << <agents, NUM_OF_DIMS>> > (r_w, r, a, b, dist_gwo, agent_pos, X_gwo, nh_pos, ind_to_choose);
-
-	//	//	cost_func << <NUM_OF_AGENTS, DIMS_TO_LOG_HALF >> > (nh_pos, nh_val);
-
-	//	cost_func << <NUM_OF_AGENTS, DIMS_TO_LOG_HALF >> > (X_gwo, y_DE_val);
-
-	//	//eer = cudaGetLastError();
-
-	//	//cudaDeviceSynchronize();
-	//	compare_two_pop << <NUM_OF_AGENTS, NUM_OF_DIMS >> > (agent_pos, agent_val, X_gwo, y_DE_val);
-	//	searchForBestThree << <1, NUM_OF_AGENTS_HALF >> > (agent_val, indice);
-
-
-	//	curandGenerateUniform(r_in, r_a, 6 * NUM_OF_AGENTS);
-	//	curandGenerateUniform(r_in, r, NUM_OF_INDICES);
-	//	curandGenerate(r_in, r_w, 2 * NUM_OF_AGENTS);
-
-	//	err2 = cudaMemcpy(&ind[0], &indice[0], 3 * sizeof(unsigned int), ::cudaMemcpyDeviceToHost);
-	//	err1 = cudaMemcpy(&best[i], &agent_val[ind[0]], sizeof(float), ::cudaMemcpyDeviceToHost);
-	//	err1 = cudaMemcpy(pop_vals, agent_val, NUM_OF_AGENTS * sizeof(float), ::cudaMemcpyDeviceToHost);
-
-	//	//cudaMemcpy(indi, dist_gwo, NUM_OF_AGENTS * sizeof(unsigned int), ::cudaMemcpyDeviceToHost);
-	//	//for (int i = 0; i <  3; ++i)
-	//	//{
-	//	//	cout << i << ind[i] << ", " << pop_vals[ind[i]] << endl;
-	//	//}
-	//	//cout << '\n' << endl;
-
-	//	error_h(cudaGetLastError());
-	//	//cudaMemcpy(indi, dist_gwo, NUM_OF_AGENTS * sizeof(unsigned int), ::cudaMemcpyDeviceToHost);
-	//	//	for (int i = 0; i <NUM_OF_AGENTS; ++i)
-	//	//	{
-	//	//		cout << indi[i] << ", " << endl;
-	//	//	}
-	//	//cout << '\n' << endl;
-	//}
-
+	error_h(cudaGetLastError());
 }
 
 __host__ void iGWO(const float* init_pop, const float* init_vals, const int* a, const int* b, 
@@ -343,85 +324,87 @@ __host__ void iGWO(const float* init_pop, const float* init_vals, const int* a, 
 
 	float* agent_pos = NULL;
 	float* agent_val = NULL;
+	float* new_pos = NULL;
+	float* new_vals = NULL;
+	float* nh_pos = NULL;
+	float* nh_val = NULL;
+	float* distance = NULL;
+	float* tmp_distance = NULL;
+	unsigned int* ind_to_choose = NULL;
+
+	unsigned int* best_index = NULL;
+	unsigned int* HOST_best_index = (unsigned int*)malloc(NUM_OF_AGENTS_HALF * sizeof(unsigned int));
+	float* r_a;
+	float* r;
+	unsigned int* r_wolf;
+	float A = 0;
+
+	dim3 agents(NUM_OF_AGENTS, NUM_OF_AGENTS, 1);
+	cudaError_t err;
+	curandGenerator_t r_in;
+	curandCreateGenerator(&r_in, CURAND_RNG_PSEUDO_PHILOX4_32_10);
+	curandSetPseudoRandomGeneratorSeed(r_in, time(NULL));
 
 	cudaMalloc(&agent_pos, NUM_OF_INDICES * sizeof(float));
 	cudaMalloc(&agent_val, NUM_OF_AGENTS * sizeof(float));
+	cudaMalloc(&new_pos, NUM_OF_INDICES * sizeof(float));
+	cudaMalloc(&new_vals, NUM_OF_AGENTS * sizeof(float));
+	cudaMalloc(&nh_pos, NUM_OF_INDICES * sizeof(float));
+	cudaMalloc(&nh_val, NUM_OF_AGENTS * sizeof(float));
+	cudaMalloc(&distance, POW_OF_AGENTS* sizeof(float));
+	cudaMalloc(&tmp_distance, POW_OF_AGENTS * DIMS_TO_LOG_HALF * sizeof(float));
+	cudaMalloc(&ind_to_choose, POW_OF_AGENTS * sizeof(unsigned int));
 
-	////	dim3 agents(NUM_OF_AGENTS, NUM_OF_AGENTS, 1);
+	cudaMalloc(&best_index, NUM_OF_AGENTS_HALF * sizeof(unsigned int));
+	cudaMalloc(&r_a, 6 * NUM_OF_AGENTS * sizeof(float));
+	cudaMalloc(&r, NUM_OF_INDICES* sizeof(float));
+	cudaMalloc(&r_wolf, 2 * NUM_OF_AGENTS * sizeof(unsigned int));
 
-	//float* r_a; float* r_d; float* r;
-	//unsigned int* r_w; unsigned int* r_nh;
-	//curandGenerator_t r_in;
-	//unsigned int num_of_uR = pow(NUM_OF_AGENTS, 2);
-	//cudaMalloc(&r_a, 3 * NUM_OF_AGENTS * sizeof(float));
-	//cudaMalloc(&r_d, 3 * NUM_OF_AGENTS * sizeof(float));
-	//cudaMalloc(&r, NUM_OF_INDICES * sizeof(float));
+	cudaMemcpy(agent_pos, init_pop, NUM_OF_INDICES * sizeof(float), ::cudaMemcpyDeviceToDevice);
+	cudaMemcpy(new_pos, init_pop, NUM_OF_INDICES * sizeof(float), ::cudaMemcpyDeviceToDevice);
+	cudaMemcpy(agent_val, init_vals, NUM_OF_AGENTS * sizeof(float), ::cudaMemcpyDeviceToDevice);
+	cudaMemcpy(new_vals, init_vals, NUM_OF_AGENTS * sizeof(float), ::cudaMemcpyDeviceToDevice);
 
-	//cudaMalloc(&r_w, NUM_OF_AGENTS * sizeof(unsigned int));
-	//cudaMalloc(&r_nh, NUM_OF_AGENTS * sizeof(unsigned int));
+	searchForBestThree << <1, NUM_OF_AGENTS_HALF >> > (agent_val, best_index);
 
-	//curandCreateGenerator(&r_in, CURAND_RNG_PSEUDO_PHILOX4_32_10);
-	//curandSetPseudoRandomGeneratorSeed(r_in, time(NULL));
+	auto s = std::chrono::high_resolution_clock::now();
+	long long iter_time = 0;
 
-	//curandGenerateUniform(r_in, r_a, 6 * NUM_OF_AGENTS);
-	//curandGenerateUniform(r_in, r, NUM_OF_INDICES);
-	//curandGenerate(r_in, r_w, 2 * NUM_OF_AGENTS);
-	//searchForBestThree << <1, NUM_OF_AGENTS_HALF >> > (agent_val, indice);
+	for (int i = 0; i < MAX_ITER; ++i)
+	{
+		s = std::chrono::high_resolution_clock::now();
+		curandGenerateUniform(r_in, r_a, 6 * NUM_OF_AGENTS);
+		curandGenerateUniform(r_in, r, NUM_OF_INDICES);
+		curandGenerate(r_in, r_wolf, 2 * NUM_OF_AGENTS);
 
-	//cudaError_t eer;
-	//float A = 0;
-	//double aaa;
-	//auto s = std::chrono::high_resolution_clock::now();;
-	//long long e = 0; long long ee = 0; long long eee = 0; long long eeee = 0; long long eeeee = 0; long long eew = 0; long long eeew = 0;
-	//for (int i = 0; i < MAX_ITER; ++i)
-	//{
-	//	A = 2 - 2 * i / MAX_ITER;
+		A = 2 - 2 * i / MAX_ITER;
+		gwo_new_pos <<< NUM_OF_AGENTS, NUM_OF_DIMS >>> (best_index, r_a, a, b, A, agent_pos, new_pos);
+		calc_distances <<<agents, DIMS_TO_LOG_HALF >>> (agent_pos, new_pos, tmp_distance, distance);
+		iGWO_nh <<<agents, NUM_OF_DIMS >>> (r_wolf, r, a, b, distance, agent_pos, new_pos, nh_pos, ind_to_choose);
+		cost_func <<<NUM_OF_AGENTS, DIMS_TO_LOG_HALF >>> (nh_pos, nh_val);
+		cost_func <<<NUM_OF_AGENTS, DIMS_TO_LOG_HALF >>> (new_pos, new_vals);
 
+		cudaDeviceSynchronize();
+		compare_two_pop <<<NUM_OF_AGENTS, NUM_OF_DIMS >>> (agent_pos, agent_val, new_pos, new_vals);
+		searchForBestThree <<<1, NUM_OF_AGENTS_HALF >>> (agent_val, best_index);
 
-	//	//cudaMemcpy(indi, indice, NUM_OF_AGENTS * sizeof(unsigned int), ::cudaMemcpyDeviceToHost);
+		iter_time += std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - s).count();
 
-	//	//err = cudaMemcpy(&best[i], &agent_val[indi[0]], sizeof(float), ::cudaMemcpyDeviceToHost);
+		cudaMemcpy(HOST_best_index, best_index, NUM_OF_AGENTS_HALF * sizeof(unsigned int), ::cudaMemcpyDeviceToHost);
+		cudaMemcpy(&best_vals[i], &agent_val[HOST_best_index[0]], sizeof(float), ::cudaMemcpyDeviceToHost);
 
-	//	GWO << < NUM_OF_AGENTS, NUM_OF_DIMS >> > (indice, r_a, a, b, A, agent_pos, X_gwo);
+		err = cudaGetLastError();
+	}
 
-	//	calc_distances << <agents, 1 >> > (agent_pos, tmp_distance, dist_gwo);
+	cudaMemcpy(best_pos, &agent_pos[HOST_best_index[0]], NUM_OF_DIMS * sizeof(float), ::cudaMemcpyDeviceToDevice);
+	time_per_iter = iter_time / MAX_ITER;
 
-	//	iGWO_nh << <agents, NUM_OF_DIMS >> > (r_w, r, a, b, dist_gwo, agent_pos, X_gwo, nh_pos, ind_to_choose);
+	cudaFree(agent_pos);
+	cudaFree(new_pos);
+	cudaFree(agent_val);
+	cudaFree(new_vals);
+	cudaFree(r);
+	cudaFree(best_index);
 
-	//	cost_func << <NUM_OF_AGENTS, DIMS_TO_LOG_HALF >> > (nh_pos, nh_val);
-
-	//	cost_func << <NUM_OF_AGENTS, DIMS_TO_LOG_HALF >> > (X_gwo, y_DE_val);
-
-	//	//eer = cudaGetLastError();
-
-	//	//cudaDeviceSynchronize();
-	//	compare_two_pop << <NUM_OF_AGENTS, NUM_OF_DIMS >> > (agent_pos, agent_val, X_gwo, y_DE_val, nh_pos, nh_val);
-	//	searchForBestThree << <1, NUM_OF_AGENTS_HALF >> > (agent_val, indice);
-
-
-	//	curandGenerateUniform(r_in, r_a, 6 * NUM_OF_AGENTS);
-	//	curandGenerateUniform(r_in, r, NUM_OF_INDICES);
-	//	curandGenerate(r_in, r_w, 2 * NUM_OF_AGENTS);
-
-	//	err2 = cudaMemcpy(&ind[0], &indice[0], 3 * sizeof(unsigned int), ::cudaMemcpyDeviceToHost);
-	//	err1 = cudaMemcpy(&best[i], &agent_val[ind[0]], sizeof(float), ::cudaMemcpyDeviceToHost);
-	//	err1 = cudaMemcpy(pop_vals, agent_val, NUM_OF_AGENTS * sizeof(float), ::cudaMemcpyDeviceToHost);
-
-	//	//cudaMemcpy(indi, dist_gwo, NUM_OF_AGENTS * sizeof(unsigned int), ::cudaMemcpyDeviceToHost);
-	//	//for (int i = 0; i <  3; ++i)
-	//	//{
-	//	//	cout << i << ind[i] << ", " << pop_vals[ind[i]] << endl;
-	//	//}
-	//	//cout << '\n' << endl;
-
-	//	error_h(cudaGetLastError());
-	//	//cudaMemcpy(indi, dist_gwo, NUM_OF_AGENTS * sizeof(unsigned int), ::cudaMemcpyDeviceToHost);
-	//	//	for (int i = 0; i <NUM_OF_AGENTS; ++i)
-	//	//	{
-	//	//		cout << indi[i] << ", " << endl;
-	//	//	}
-	//	//cout << '\n' << endl;
-	//}
-
-
+	error_h(cudaGetLastError());
 }

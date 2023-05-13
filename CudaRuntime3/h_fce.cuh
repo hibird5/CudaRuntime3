@@ -21,22 +21,22 @@
 #include <thrust/device_vector.h>
 
 
-#define NUM_OF_AGENTS 64
-#define NUM_OF_RUNS 6
+#define NUM_OF_AGENTS 1024
+#define NUM_OF_RUNS 7
 #define POW_OF_AGENTS NUM_OF_AGENTS*NUM_OF_AGENTS
-#define NUM_OF_DIMS 10
-#define NUM_OF_RUNS_ADD 4
-#define DIMS_TO_LOG 16
+#define NUM_OF_DIMS 2
+#define NUM_OF_RUNS_ADD 1
+#define DIMS_TO_LOG 2
 #define DIMS_TO_LOG_HALF DIMS_TO_LOG/2
 
 #define NUM_OF_INDICES NUM_OF_AGENTS*NUM_OF_DIMS
 #define input_func ST
 #define lo -5
 #define hi 5
-#define MAX_ITER 50
+#define MAX_ITER 500
 #define NUM_OF_AGENTS_HALF NUM_OF_AGENTS/2
 #define POW_OF_AGENTS_HALF POW_OF_AGENTS/2
-#define ROSENBROCK 3
+
 #define SPHEERE 2
 #define ST 1
 
@@ -66,7 +66,7 @@ __global__ void pso_f(const float w, const float c1, const float c2, const int* 
 __global__ void ffa(const float alfa, const float beta, const float gamma, const int* a, const int* b, const float* r,
 	 const float* agent_pos, float* agent_new_pos, const float* agent_val);
 
-__global__ void GWO(const unsigned int* best_ind, const float* r_a, const int* a, const int* b,
+__global__ void gwo_new_pos(const unsigned int* best_ind, const float* r_a, const int* a, const int* b,
 	const float A, const float* agent_pos, float* agent_new_pos);
 
 __global__ void iGWO_nh(unsigned int* r_w, const float* r, const int* a, const int* b,
@@ -80,6 +80,8 @@ __global__ void abc_rns(const float* agent_pos, float* agent_new_pos, const unsi
 //__global__ void calc_distances(const float* agent_pos, const float* agent_new_pos, float* distance);
 
 __global__ void calc_distances(const float* agent_pos, float* tmp_distance, float* distance);
+
+__global__ void calc_distances(const float* agent_pos, const float* agent_new_pos, float* tmp_distance, float* distance);
 
 __global__ void compare_two_pop(float* pos, float* val, const float* GWO_pos, const float* GWO_val,
 	const float* nh_pos, const float* nh_val);

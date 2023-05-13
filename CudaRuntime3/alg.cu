@@ -304,6 +304,10 @@ __host__ void GWO(const float* init_pop, const float* init_vals, const int* a, c
 		cudaMemcpy(&best_vals[i], &agent_val[HOST_best_index[0]], sizeof(float), ::cudaMemcpyDeviceToHost);
 
 		err = cudaGetLastError();
+
+		if (err != 0)
+			break;
+
 	}
 
 	cudaMemcpy(best_pos, &agent_pos[HOST_best_index[0]], NUM_OF_DIMS * sizeof(float), ::cudaMemcpyDeviceToDevice);
@@ -316,7 +320,7 @@ __host__ void GWO(const float* init_pop, const float* init_vals, const int* a, c
 	cudaFree(r);
 	cudaFree(best_index);
 
-	error_h(cudaGetLastError());
+	error_h(err);
 }
 
 __host__ void iGWO(const float* init_pop, const float* init_vals, const int* a, const int* b, 
@@ -394,6 +398,10 @@ __host__ void iGWO(const float* init_pop, const float* init_vals, const int* a, 
 		cudaMemcpy(&best_vals[i], &agent_val[HOST_best_index[0]], sizeof(float), ::cudaMemcpyDeviceToHost);
 
 		err = cudaGetLastError();
+
+		if (err != 0)
+			break;
+
 	}
 
 	cudaMemcpy(best_pos, &agent_pos[HOST_best_index[0]], NUM_OF_DIMS * sizeof(float), ::cudaMemcpyDeviceToDevice);
@@ -406,5 +414,5 @@ __host__ void iGWO(const float* init_pop, const float* init_vals, const int* a, 
 	cudaFree(r);
 	cudaFree(best_index);
 
-	error_h(cudaGetLastError());
+	error_h(err);
 }
